@@ -8,6 +8,8 @@ public partial class AudioPanel : UserControl
 {
     private readonly AudioPlayback playback = new();
 
+    internal event Action? OpenAudioRequested;
+
     public AudioPanel()
     {
         InitializeComponent();
@@ -36,6 +38,7 @@ public partial class AudioPanel : UserControl
 
     internal void TogglePlaybackFromKeyboard() => playback.TogglePlay(rewindOnPause: true);
 
+    private void OpenAudio_Click(object sender, RoutedEventArgs e) => OpenAudioRequested?.Invoke();
     private void Play_Click(object sender, RoutedEventArgs e) => playback.TogglePlay();
     private void Stop_Click(object sender, RoutedEventArgs e) => playback.Stop();
     private void Close_Click(object sender, RoutedEventArgs e) => Close();

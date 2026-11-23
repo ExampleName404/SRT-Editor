@@ -15,12 +15,15 @@ public partial class MainWindow : Window
 {
     private const string FileFilter = "Субтитры SRT (*.srt)|*.srt|Все файлы (*.*)|*.*";
     private const string AudioFilter = "Аудиофайлы|*.wav;*.mp3;*.ogg;*.oga;*.opus;*.m4a;*.aac;*.flac;*.wma|Все файлы (*.*)|*.*";
+    private const double DefaultAudioPanelHeight = 193;
+    private const double MinimumAudioPanelHeight = 164;
     private readonly EditorViewModel editor = new(
         new VersionStore(Path.Combine(AppContext.BaseDirectory, "cache", "versions")));
     private Point dragOrigin;
     private CueRow? draggedCue;
     private ListBoxItem? dropMarker;
     private Guid? diffRestoreTarget;
+    private GridLength? previousAudioHeight;
 
     public MainWindow()
     {
@@ -28,12 +31,13 @@ public partial class MainWindow : Window
         DataContext = editor;
         editor.PropertyChanged += Editor_PropertyChanged;
         editor.CuesChanged += SoundPanel.UpdateCues;
+        SoundPanel.OpenAudioRequested += OpenAudio;
         editor.New();
     }
 
     private void New_Click(object sender, RoutedEventArgs e) => NewDocument();
     private void Open_Click(object sender, RoutedEventArgs e) => OpenDocument();
-    private void OpenAudio_Click(object sender, RoutedEventArgs e)
+    private void OpenAudio()
     {
         var dialog = new OpenFileDialog
         {
@@ -44,6 +48,31 @@ public partial class MainWindow : Window
         };
         if (dialog.ShowDialog(this) == true)
             SoundPanel.Open(dialog.FileName, editor.Rows.Select(row => row.Data));
+    }
+
+    private void ToggleAudioPanel_Click(object sender, RoutedEventArgs e)
+    {
+        bool open = SoundPanel.Visibility == Visibility.Collapsed;
+        if (open)
+        {
+            if (previousAudioHeight is null)
+            {
+                double editorHeight = Math.Max(EditorRow.MinHeight, EditorRow.ActualHeight - DefaultAudioPanelHeight);
+                EditorRow.Height = new GridLength(editorHeight, GridUnitType.Star);
+            }
+
+            AudioRow.Height = previousAudioHeight ?? new GridLength(DefaultAudioPanelHeight, GridUnitType.Star);
+            AudioRow.MinHeight = MinimumAudioPanelHeight;
+        }
+        else
+        {
+            previousAudioHeight = AudioRow.Height;
+            AudioRow.MinHeight = 0;
+            AudioRow.Height = new GridLength(0);
+        }
+
+        SoundPanel.Visibility = AudioSplitter.Visibility = open ? Visibility.Visible : Visibility.Collapsed;
+        AudioDisclosure.Content = open ? "Скрыть аудио" : "Показать аудио";
     }
 
     private void Save_Click(object sender, RoutedEventArgs e) => SaveDocument();

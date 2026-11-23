@@ -52,7 +52,7 @@ internal sealed class AudioPlayback : ObservableModel
     public AudioWaveform? Waveform { get => waveform; private set => Set(ref waveform, value); }
     public string WaveformMessage
     {
-        get => waveformMessage;
+        get => HasSource ? waveformMessage : "Нажмите «Открыть аудио…», чтобы загрузить запись.";
         private set
         {
             Set(ref waveformMessage, value);
@@ -454,6 +454,8 @@ internal sealed class AudioPlayback : ObservableModel
         Set(ref path, filePath, nameof(FilePath));
         Notify(nameof(HasSource));
         Notify(nameof(FileName));
+        Notify(nameof(WaveformMessage));
+        Notify(nameof(HasWaveformMessage));
     }
 
     private static string FormatTime(double milliseconds) => SubtitleTime.Format((long)milliseconds);

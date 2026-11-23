@@ -50,8 +50,9 @@
     <Grid Margin="24,20,24,12">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
-            <RowDefinition Height="*" />
+            <RowDefinition x:Name="EditorRow" Height="*" MinHeight="180" />
             <RowDefinition Height="Auto" />
+            <RowDefinition x:Name="AudioRow" Height="0" />
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
@@ -212,13 +213,9 @@
                     </Grid.RowDefinitions>
                     <TextBlock Text="Предпросмотр SRT" Style="{StaticResource SectionTitle}" Margin="0,0,0,10" />
                     <StackPanel Grid.Row="1" Margin="0,0,0,9">
-                        <WrapPanel>
-                            <CheckBox Content="Показать изменения" IsChecked="{Binding ShowChanges}"
-                                      Foreground="{StaticResource Muted}" Cursor="Hand"
-                                      VerticalAlignment="Center" Margin="0,0,12,3" />
-                            <Button Content="Открыть аудио…" Click="OpenAudio_Click"
-                                    MinHeight="26" Padding="8,2" FontSize="12" Margin="0,0,0,3" />
-                        </WrapPanel>
+                        <CheckBox Content="Показать изменения" IsChecked="{Binding ShowChanges}"
+                                  Foreground="{StaticResource Muted}" Cursor="Hand" HorizontalAlignment="Left"
+                                  VerticalAlignment="Center" Margin="0,0,0,3" />
                         <StackPanel Margin="0,5,0,0"
                                     Visibility="{Binding ShowChanges, Converter={StaticResource VisibleWhenTrue}}">
                             <TextBlock Text="{Binding ComparisonLabel}" FontWeight="SemiBold" TextWrapping="Wrap" />
@@ -270,9 +267,38 @@
             </Border>
         </Grid>
 
-        <local:AudioPanel x:Name="SoundPanel" Grid.Row="2" Margin="0,10,0,0" />
+        <Button x:Name="AudioDisclosure" Grid.Row="2" HorizontalAlignment="Left" Margin="0,6,0,4"
+                MinHeight="26" Width="126" Padding="8,2" Content="Показать аудио" Click="ToggleAudioPanel_Click" />
+        <GridSplitter x:Name="AudioSplitter" Grid.Row="2" Visibility="Collapsed" Margin="134,6,0,4"
+                      Height="24" HorizontalAlignment="Stretch" VerticalAlignment="Center" Cursor="SizeNS"
+                      ResizeDirection="Rows" ResizeBehavior="PreviousAndNext"
+                      ToolTip="Перетащите, чтобы изменить высоту панели"
+                      AutomationProperties.Name="Высота панели аудио">
+            <GridSplitter.Template>
+                <ControlTemplate TargetType="GridSplitter">
+                    <Grid Background="Transparent">
+                        <Line x:Name="Guide" X2="1" Stretch="Fill" VerticalAlignment="Center" Margin="4,0"
+                              Stroke="#677487" StrokeThickness="1.5" StrokeDashArray="5,5" StrokeDashCap="Round"
+                              IsHitTestVisible="False" />
+                        <Border x:Name="Grip" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                Width="42" Height="4" CornerRadius="2" Background="{StaticResource Muted}" />
+                    </Grid>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Guide" Property="Stroke" Value="{StaticResource Accent}" />
+                            <Setter TargetName="Grip" Property="Background" Value="{StaticResource Accent}" />
+                        </Trigger>
+                        <Trigger Property="IsKeyboardFocused" Value="True">
+                            <Setter TargetName="Guide" Property="Stroke" Value="{StaticResource Accent}" />
+                            <Setter TargetName="Grip" Property="Background" Value="{StaticResource Accent}" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </GridSplitter.Template>
+        </GridSplitter>
+        <local:AudioPanel x:Name="SoundPanel" Grid.Row="3" Visibility="Collapsed" />
 
-        <Grid Grid.Row="3" Margin="0,8,0,0" MinHeight="18">
+        <Grid Grid.Row="4" Margin="0,8,0,0" MinHeight="18">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="Auto" />

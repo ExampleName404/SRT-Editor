@@ -106,7 +106,7 @@ internal sealed class EditorViewModel(VersionStore versionStore) : ObservableMod
     private string status = "";
     private string validation = "";
     private bool isDirty;
-    private bool showChanges;
+    private bool showChanges = true;
     private FileVersion? comparisonVersion;
     private string diffSummary = "";
     private IReadOnlyList<PreviewCue> previewRows = [];
