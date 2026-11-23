@@ -6,79 +6,6 @@
         FontFamily="Segoe UI" FontSize="14" UseLayoutRounding="True"
         PreviewKeyDown="Window_PreviewKeyDown" Closing="Window_Closing">
     <Window.Resources>
-        <SolidColorBrush x:Key="Surface" Color="#1B2029" />
-        <SolidColorBrush x:Key="Field" Color="#151A21" />
-        <SolidColorBrush x:Key="Line" Color="#323A47" />
-        <SolidColorBrush x:Key="Muted" Color="#ABB4C1" />
-        <SolidColorBrush x:Key="Accent" Color="#9FEBCE" />
-        <SolidColorBrush x:Key="Error" Color="#FFADAB" />
-        <SolidColorBrush x:Key="Warning" Color="#F5CA84" />
-        <BooleanToVisibilityConverter x:Key="VisibleWhenTrue" />
-
-        <Style x:Key="Caption" TargetType="TextBlock">
-            <Setter Property="Foreground" Value="{StaticResource Muted}" />
-            <Setter Property="FontSize" Value="12" />
-        </Style>
-        <Style x:Key="SectionTitle" TargetType="TextBlock">
-            <Setter Property="FontSize" Value="17" />
-            <Setter Property="FontWeight" Value="SemiBold" />
-        </Style>
-        <Style TargetType="Button">
-            <Setter Property="Foreground" Value="#ECF0F4" />
-            <Setter Property="Background" Value="#262D39" />
-            <Setter Property="BorderBrush" Value="{StaticResource Line}" />
-            <Setter Property="BorderThickness" Value="1" />
-            <Setter Property="Padding" Value="11,6" />
-            <Setter Property="MinHeight" Value="32" />
-            <Setter Property="Cursor" Value="Hand" />
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="Button">
-                        <Border x:Name="Chrome" Background="{TemplateBinding Background}"
-                                BorderBrush="{TemplateBinding BorderBrush}"
-                                BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="6"
-                                Padding="{TemplateBinding Padding}" SnapsToDevicePixels="True">
-                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"
-                                              RecognizesAccessKey="True" />
-                        </Border>
-                        <ControlTemplate.Triggers>
-                            <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="Chrome" Property="BorderBrush" Value="#A4B0C1" />
-                            </Trigger>
-                            <Trigger Property="IsKeyboardFocused" Value="True">
-                                <Setter TargetName="Chrome" Property="BorderBrush" Value="#DDFCEF" />
-                            </Trigger>
-                            <Trigger Property="IsPressed" Value="True">
-                                <Setter TargetName="Chrome" Property="Opacity" Value="0.78" />
-                            </Trigger>
-                            <Trigger Property="IsEnabled" Value="False">
-                                <Setter TargetName="Chrome" Property="Opacity" Value="0.42" />
-                            </Trigger>
-                        </ControlTemplate.Triggers>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
-        <Style x:Key="PrimaryButton" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
-            <Setter Property="Background" Value="{StaticResource Accent}" />
-            <Setter Property="BorderBrush" Value="{StaticResource Accent}" />
-            <Setter Property="Foreground" Value="#142B23" />
-            <Setter Property="FontWeight" Value="SemiBold" />
-        </Style>
-        <Style TargetType="TextBox">
-            <Setter Property="Foreground" Value="#ECF0F4" />
-            <Setter Property="Background" Value="{StaticResource Field}" />
-            <Setter Property="BorderBrush" Value="{StaticResource Line}" />
-            <Setter Property="BorderThickness" Value="1" />
-            <Setter Property="Padding" Value="8,6" />
-            <Setter Property="CaretBrush" Value="{StaticResource Accent}" />
-            <Setter Property="SelectionBrush" Value="#588475" />
-            <Style.Triggers>
-                <Trigger Property="IsKeyboardFocused" Value="True">
-                    <Setter Property="BorderBrush" Value="{StaticResource Accent}" />
-                </Trigger>
-            </Style.Triggers>
-        </Style>
         <Style x:Key="TimeInput" TargetType="TextBox" BasedOn="{StaticResource {x:Type TextBox}}">
             <Setter Property="FontFamily" Value="Consolas" />
             <Setter Property="MinHeight" Value="32" />
@@ -116,6 +43,19 @@
             </Setter>
             <EventSetter Event="PreviewGotKeyboardFocus" Handler="Cue_PreviewGotKeyboardFocus" />
         </Style>
+        <Style x:Key="DiffContainer" TargetType="ListBoxItem">
+            <Setter Property="AutomationProperties.Name" Value="{Binding AccessibleName}" />
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="Margin" Value="0,0,0,6" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ListBoxItem">
+                        <ContentPresenter />
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
     </Window.Resources>
 
     <Grid Margin="24,20,24,12">
@@ -141,7 +81,10 @@
                 <Button Content="Сохранить" Click="Save_Click" ToolTip="Ctrl+S" Margin="0,0,6,0" />
                 <Button Content="Сохранить как…" Click="SaveAs_Click" ToolTip="Ctrl+Shift+S" Margin="0,0,14,0" />
                 <Button Content="Отменить" Click="Undo_Click" IsEnabled="{Binding CanUndo}"
-                        ToolTip="Ctrl+Z" />
+                        ToolTip="Ctrl+Z" Margin="0,0,14,0" />
+                <Button Content="Версии…" Click="Versions_Click" IsEnabled="{Binding HasFile}"
+                        ToolTip="Посмотреть локальные версии файла" Margin="0,0,6,0" />
+                <Button Content="Настройки…" Click="Settings_Click" />
             </StackPanel>
         </Grid>
 
@@ -274,13 +217,92 @@
                 <Grid>
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
                         <RowDefinition Height="*" />
                     </Grid.RowDefinitions>
                     <TextBlock Text="Предпросмотр SRT" Style="{StaticResource SectionTitle}" Margin="0,0,0,10" />
-                    <TextBox Grid.Row="1" Text="{Binding Preview, Mode=OneWay}" IsReadOnly="True"
+                    <StackPanel Grid.Row="1" Margin="0,0,0,9">
+                        <CheckBox Content="Показать изменения" IsChecked="{Binding ShowChanges}"
+                                  Foreground="{StaticResource Muted}" Cursor="Hand" Margin="0,0,0,3" />
+                        <StackPanel Margin="0,5,0,0"
+                                    Visibility="{Binding ShowChanges, Converter={StaticResource VisibleWhenTrue}}">
+                            <TextBlock Text="{Binding ComparisonLabel}" FontWeight="SemiBold" TextWrapping="Wrap" />
+                            <WrapPanel Margin="0,4,0,0">
+                                <TextBlock Text="{Binding DiffSummary}" Style="{StaticResource Caption}"
+                                           VerticalAlignment="Center" Margin="0,0,10,0" />
+                                <Button Content="Сравнить с последней" Click="LatestComparison_Click"
+                                        Visibility="{Binding HasOlderComparison, Converter={StaticResource VisibleWhenTrue}}"
+                                        MinHeight="25" Padding="7,2" FontSize="12" />
+                            </WrapPanel>
+                        </StackPanel>
+                    </StackPanel>
+                    <TextBox Grid.Row="2" Text="{Binding Preview, Mode=OneWay}" IsReadOnly="True"
                              FontFamily="Consolas" FontSize="13" Padding="10" TextWrapping="Wrap"
                              VerticalScrollBarVisibility="Auto" IsUndoEnabled="False"
-                             AutomationProperties.Name="Предпросмотр SRT" />
+                             AutomationProperties.Name="Предпросмотр SRT">
+                        <TextBox.Style>
+                            <Style TargetType="TextBox" BasedOn="{StaticResource {x:Type TextBox}}">
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding ShowChanges}" Value="True">
+                                        <Setter Property="Visibility" Value="Collapsed" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBox.Style>
+                    </TextBox>
+                    <ListBox Grid.Row="2" ItemsSource="{Binding PreviewRows}" Background="Transparent"
+                             BorderThickness="0" Padding="0" Foreground="#ECF0F4"
+                             ScrollViewer.HorizontalScrollBarVisibility="Disabled" VirtualizingPanel.ScrollUnit="Pixel"
+                             ItemContainerStyle="{StaticResource DiffContainer}" AutomationProperties.Name="Изменения SRT"
+                             Visibility="{Binding ShowChanges, Converter={StaticResource VisibleWhenTrue}}">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate>
+                                <Border Padding="10,7" CornerRadius="5" BorderThickness="2,0,0,0"
+                                        ContextMenuOpening="DiffBlock_ContextMenuOpening">
+                                    <Border.Style>
+                                        <Style TargetType="Border">
+                                            <Setter Property="Background" Value="{StaticResource Field}" />
+                                            <Setter Property="BorderBrush" Value="Transparent" />
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding Changed}" Value="True">
+                                                    <Setter Property="Background" Value="#342B20" />
+                                                    <Setter Property="BorderBrush" Value="{StaticResource Warning}" />
+                                                    <Setter Property="ToolTip" Value="Правая кнопка мыши — восстановить блок из версии" />
+                                                </DataTrigger>
+                                                <DataTrigger Binding="{Binding Added}" Value="True">
+                                                    <Setter Property="Background" Value="#1D352E" />
+                                                    <Setter Property="BorderBrush" Value="{StaticResource Accent}" />
+                                                    <Setter Property="ToolTip" Value="Правая кнопка мыши — убрать добавленный блок" />
+                                                </DataTrigger>
+                                                <DataTrigger Binding="{Binding Removed}" Value="True">
+                                                    <Setter Property="Background" Value="#39272B" />
+                                                    <Setter Property="BorderBrush" Value="{StaticResource Error}" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Border.Style>
+                                    <Border.ContextMenu>
+                                        <ContextMenu DataContext="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource Self}}">
+                                            <MenuItem Header="{Binding RestoreLabel}" Click="RestorePreviewCue_Click" />
+                                        </ContextMenu>
+                                    </Border.ContextMenu>
+                                    <StackPanel>
+                                        <TextBlock Text="{Binding Caption}" FontSize="12" FontWeight="SemiBold"
+                                                   Foreground="{StaticResource Muted}" Margin="0,0,0,4"
+                                                   Visibility="{Binding Changed, Converter={StaticResource VisibleWhenTrue}}" />
+                                        <TextBlock Text="{Binding Block}" FontFamily="Consolas" FontSize="13"
+                                                   Foreground="#ECF0F4" TextWrapping="Wrap" />
+                                        <Expander Header="Было в версии" FontSize="12"
+                                                  Foreground="{StaticResource Muted}" Margin="0,6,0,0"
+                                                  Visibility="{Binding ShowPrevious, Converter={StaticResource VisibleWhenTrue}}">
+                                            <TextBlock Text="{Binding PreviousBlock}" FontFamily="Consolas" FontSize="13"
+                                                       TextWrapping="Wrap" Margin="0,4,0,0" />
+                                        </Expander>
+                                    </StackPanel>
+                                </Border>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
                 </Grid>
             </Border>
         </Grid>

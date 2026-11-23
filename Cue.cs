@@ -3,7 +3,10 @@ using System.Text.RegularExpressions;
 
 namespace SrtEditor;
 
-internal sealed record Cue(string Start = "", string End = "", string Text = "", string Settings = "");
+internal sealed record Cue(string Start = "", string End = "", string Text = "", string Settings = "")
+{
+    public Guid Id { get; init; } = Guid.NewGuid();
+}
 
 internal static class SubtitleTime
 {

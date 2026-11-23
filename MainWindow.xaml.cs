@@ -13,7 +13,8 @@ namespace SrtEditor;
 public partial class MainWindow : Window
 {
     private const string FileFilter = "Субтитры SRT (*.srt)|*.srt|Все файлы (*.*)|*.*";
-    private readonly EditorViewModel editor = new();
+    private readonly EditorViewModel editor = new(
+        new VersionStore(Path.Combine(AppContext.BaseDirectory, "cache", "versions")));
     private Point dragOrigin;
     private CueRow? draggedCue;
     private ListBoxItem? dropMarker;
@@ -32,6 +33,49 @@ public partial class MainWindow : Window
     private void Undo_Click(object sender, RoutedEventArgs e) => editor.Undo();
     private void Add_Click(object sender, RoutedEventArgs e) => AddCue();
     private void Delete_Click(object sender, RoutedEventArgs e) => editor.Delete();
+    private void LatestComparison_Click(object sender, RoutedEventArgs e) => editor.UseComparisonVersion(null);
+
+    private void Versions_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            var dialog = new VersionHistoryWindow(editor.FileName, editor.ReadVersions()) { Owner = this };
+            if (dialog.ShowDialog() != true || dialog.SelectedVersion is not { } version)
+                return;
+
+            if (dialog.RestoreSelected)
+            {
+                editor.RestoreVersion(version);
+                ScrollToSelected();
+            }
+            else
+            {
+                editor.UseComparisonVersion(version);
+            }
+        }
+        catch (Exception exception) when (EditorViewModel.IsCacheError(exception))
+        {
+            ShowFileError("Не удалось открыть историю файла.", exception);
+        }
+    }
+
+    private void Settings_Click(object sender, RoutedEventArgs e) =>
+        new EditorSettingsWindow(editor) { Owner = this }.ShowDialog();
+
+    private void DiffBlock_ContextMenuOpening(object sender, ContextMenuEventArgs e)
+    {
+        if (sender is FrameworkElement { DataContext: PreviewCue { Changed: false } })
+            e.Handled = true;
+    }
+
+    private void RestorePreviewCue_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is MenuItem { DataContext: PreviewCue row })
+        {
+            editor.RestorePreviewCue(row.Id);
+            ScrollToSelected();
+        }
+    }
 
     private void NewDocument()
     {

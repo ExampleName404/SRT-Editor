@@ -92,7 +92,7 @@ internal sealed class CueRow(EditorViewModel editor, Cue data) : ObservableModel
     }
 }
 
-internal sealed class EditorViewModel : ObservableModel
+internal sealed class EditorViewModel(VersionStore versionStore) : ObservableModel
 {
     private sealed record Snapshot(Cue[] Cues, int Selection);
 
@@ -106,9 +106,14 @@ internal sealed class EditorViewModel : ObservableModel
     private string status = "";
     private string validation = "";
     private bool isDirty;
+    private bool showChanges;
+    private FileVersion? comparisonVersion;
+    private string diffSummary = "";
 
     public ObservableCollection<CueRow> Rows { get; } = [];
+    public ObservableCollection<PreviewCue> PreviewRows { get; } = [];
     public string? FilePath { get; private set; }
+    public bool HasFile => FilePath is not null;
     public string FileName => FilePath is null ? "Новый файл" : Path.GetFileName(FilePath);
     public string WindowTitle => $"{FileName}{(IsDirty ? " *" : "")} — SRT Editor";
     public string FileLabel => IsDirty ? $"{FileName} *" : FileName;
@@ -134,12 +139,34 @@ internal sealed class EditorViewModel : ObservableModel
     public string Preview { get => preview; private set => Set(ref preview, value); }
     public string Status { get => status; set => Set(ref status, value); }
     public string Validation { get => validation; private set => Set(ref validation, value); }
+    public string DiffSummary { get => diffSummary; private set => Set(ref diffSummary, value); }
+    public string CachePath => versionStore.DirectoryPath;
+    public bool HasOlderComparison => comparisonVersion is not null;
+    public string ComparisonLabel => comparisonVersion is not null
+        ? $"Версия от {comparisonVersion.RecordedAt.ToLocalTime():dd.MM.yyyy HH:mm:ss}"
+        : HasFile ? "Последняя сохранённая версия" : "Новый документ";
+
+    public bool ShowChanges
+    {
+        get => showChanges;
+        set
+        {
+            if (showChanges == value)
+                return;
+
+            Set(ref showChanges, value);
+            RefreshDiff(Capture());
+        }
+    }
 
     public bool IsDirty
     {
         get => isDirty;
         private set
         {
+            if (isDirty == value)
+                return;
+
             Set(ref isDirty, value);
             Notify(nameof(WindowTitle));
             Notify(nameof(FileLabel));
@@ -151,7 +178,22 @@ internal sealed class EditorViewModel : ObservableModel
     public void Open(string path)
     {
         var document = SrtFile.Read(path);
-        Load(document.Cues, path, document.Format, "Файл открыт.");
+        var cues = document.Cues;
+        string message = "Файл открыт.";
+        try
+        {
+            var latest = versionStore.Read(path).FirstOrDefault();
+            if (latest is not null)
+                cues = CueComparison.ReuseIds(cues, latest.Cues);
+
+            versionStore.Record(path, cues, latest);
+        }
+        catch (Exception exception) when (IsCacheError(exception))
+        {
+            message += " Не удалось обновить историю.";
+        }
+
+        Load(cues, path, document.Format, message);
     }
 
     public bool PrepareToSave()
@@ -169,13 +211,117 @@ internal sealed class EditorViewModel : ObservableModel
 
     public void Save(string path)
     {
+        bool changedPath = FilePath is null || !VersionStore.IsSameFile(FilePath, path);
         var cues = Capture();
+        FileVersion? latest = null;
+        bool historyFailed = false;
+
+        try
+        {
+            latest = versionStore.Read(path).FirstOrDefault();
+            if (File.Exists(path))
+            {
+                var onDisk = SrtFile.Read(path).Cues;
+                var reference = latest?.Cues ?? (changedPath ? [] : saved);
+                var original = CueComparison.ReuseIds(onDisk, reference);
+                latest = versionStore.Record(path, original, latest);
+            }
+        }
+        catch (Exception exception) when (IsCacheError(exception) ||
+                                         exception is FormatException or System.Text.DecoderFallbackException)
+        {
+            historyFailed = true;
+        }
+
+        if (changedPath && latest is not null)
+            cues = CueComparison.ReuseIds(cues, latest.Cues);
+
         SrtFile.Write(path, cues, format);
+        try
+        {
+            versionStore.Record(path, cues, latest);
+        }
+        catch (Exception exception) when (IsCacheError(exception))
+        {
+            historyFailed = true;
+        }
+
+        if (changedPath)
+        {
+            Restore(cues, Selected is null ? -1 : Rows.IndexOf(Selected));
+            comparisonVersion = null;
+        }
+
         FilePath = path;
         saved = cues;
+        NotifyFile();
+        RefreshDiff(cues);
         IsDirty = false;
-        Status = "Файл сохранён.";
+        Status = historyFailed ? "Файл сохранён. Не удалось полностью обновить историю." : "Файл сохранён.";
     }
+
+    public IReadOnlyList<FileVersion> ReadVersions() =>
+        FilePath is null ? [] : versionStore.Read(FilePath);
+
+    public void UseComparisonVersion(FileVersion? version)
+    {
+        comparisonVersion = version;
+        NotifyComparison();
+        if (ShowChanges)
+            RefreshDiff(Capture());
+        else
+            ShowChanges = true;
+    }
+
+    public void RestoreVersion(FileVersion version)
+    {
+        if (!Capture().SequenceEqual(version.Cues))
+        {
+            Remember();
+            Restore(version.Cues, 0);
+            Changed();
+        }
+
+        UseComparisonVersion(null);
+        Status = "Версия восстановлена в редакторе. Сохраните файл, чтобы применить её.";
+    }
+
+    public void RestorePreviewCue(Guid id)
+    {
+        var change = PreviewRows.FirstOrDefault(row => row.Id == id);
+        if (change is not { Changed: true })
+            return;
+
+        var cues = Capture().ToList();
+        int position = change.Number - 1;
+        if (change.Current is not null)
+            cues.RemoveAt(position);
+
+        if (change.Previous is not null)
+        {
+            if (change.Removed || change.Moved)
+                position = CueComparison.RestorePosition(comparisonVersion?.Cues ?? saved, id, cues);
+
+            cues.Insert(position, change.Previous);
+        }
+
+        Remember();
+        Restore(cues.ToArray(), Math.Min(position, cues.Count - 1));
+        Changed();
+        Status = change.Added ? "Добавление блока отменено." : "Блок восстановлен из версии.";
+    }
+
+    public int ClearVersions()
+    {
+        int deleted = versionStore.Clear();
+        if (HasOlderComparison)
+            UseComparisonVersion(null);
+
+        return deleted;
+    }
+
+    public static bool IsCacheError(Exception exception) =>
+        exception is IOException or UnauthorizedAccessException;
 
     public CueRow Add()
     {
@@ -308,8 +454,10 @@ internal sealed class EditorViewModel : ObservableModel
         undo.Clear();
         saved = cues;
         FilePath = path;
+        comparisonVersion = null;
         format = newFormat;
         Restore(cues, 0);
+        NotifyFile();
         Changed();
         Status = message;
         Notify(nameof(CanUndo));
@@ -371,7 +519,8 @@ internal sealed class EditorViewModel : ObservableModel
         }
 
         Preview = SrtFile.Render(cues, format.NewLine);
-        IsDirty = !cues.SequenceEqual(saved);
+        IsDirty = !CueComparison.HasSameContent(cues, saved);
+        RefreshDiff(cues);
         Validation = errors > 0
             ? $"Блоков с ошибками: {errors}"
             : overlaps > 0 ? $"Блоков с пересечениями: {overlaps}" : "";
@@ -379,5 +528,44 @@ internal sealed class EditorViewModel : ObservableModel
         Notify(nameof(IsEmpty));
         Notify(nameof(HasMultipleCues));
         return firstError;
+    }
+
+    private void RefreshDiff(Cue[] cues)
+    {
+        if (!ShowChanges)
+        {
+            PreviewRows.Clear();
+            return;
+        }
+
+        var rows = CueComparison.Compare(comparisonVersion?.Cues ?? saved, cues);
+        for (int index = 0; index < rows.Length; index++)
+        {
+            if (index >= PreviewRows.Count)
+                PreviewRows.Add(rows[index]);
+            else if (PreviewRows[index] != rows[index])
+                PreviewRows[index] = rows[index];
+        }
+        while (PreviewRows.Count > rows.Length)
+            PreviewRows.RemoveAt(PreviewRows.Count - 1);
+
+        int changed = rows.Count(row => row.Changed);
+        DiffSummary = changed == 0 ? "Изменений нет" : $"Изменённых блоков: {changed}";
+    }
+
+    private void NotifyFile()
+    {
+        Notify(nameof(FilePath));
+        Notify(nameof(FileName));
+        Notify(nameof(HasFile));
+        Notify(nameof(WindowTitle));
+        Notify(nameof(FileLabel));
+        NotifyComparison();
+    }
+
+    private void NotifyComparison()
+    {
+        Notify(nameof(HasOlderComparison));
+        Notify(nameof(ComparisonLabel));
     }
 }

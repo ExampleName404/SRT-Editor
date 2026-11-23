@@ -1,4 +1,5 @@
 using System.IO;
+using System.Globalization;
 using System.Text;
 using System.Text.RegularExpressions;
 
@@ -35,18 +36,26 @@ internal static class SrtFile
         var result = new StringBuilder();
         for (int index = 0; index < cues.Count; index++)
         {
-            var cue = cues[index];
             if (index > 0)
                 result.Append(newLine);
 
-            result.Append(index + 1).Append(newLine)
-                .Append(FormatTiming(cue.Start)).Append(" --> ").Append(FormatTiming(cue.End))
-                .Append(cue.Settings).Append(newLine)
-                .Append(NewLines.Replace(cue.Text, newLine)).Append(newLine);
+            result.Append(RenderBlock(cues[index], index + 1, newLine)).Append(newLine);
         }
 
         return result.ToString();
     }
+
+    public static string RenderBlock(Cue cue, int number, string newLine) =>
+        string.Concat(number.ToString(CultureInfo.InvariantCulture), newLine,
+            FormatTiming(cue.Start), " --> ", FormatTiming(cue.End), cue.Settings, newLine,
+            NewLines.Replace(cue.Text, newLine));
+
+    public static Cue Normalize(Cue cue) => cue with
+    {
+        Start = FormatTiming(cue.Start),
+        End = FormatTiming(cue.End),
+        Text = NewLines.Replace(cue.Text, "\r\n")
+    };
 
     public static void Write(string path, IReadOnlyList<Cue> cues, SrtFormat format)
     {
