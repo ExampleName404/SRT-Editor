@@ -111,6 +111,8 @@ internal sealed class EditorViewModel(VersionStore versionStore) : ObservableMod
     private string diffSummary = "";
     private IReadOnlyList<PreviewCue> previewRows = [];
 
+    public event Action<IReadOnlyList<Cue>>? CuesChanged;
+
     public ObservableCollection<CueRow> Rows { get; } = [];
     public IReadOnlyList<PreviewCue> PreviewRows => previewRows;
     public string? FilePath { get; private set; }
@@ -492,7 +494,9 @@ internal sealed class EditorViewModel(VersionStore versionStore) : ObservableMod
     {
         commandErrors = null;
         Status = "";
-        Refresh(Capture());
+        var cues = Capture();
+        Refresh(cues);
+        CuesChanged?.Invoke(cues);
     }
 
     private int Refresh(Cue[] cues)

@@ -13,6 +13,7 @@ namespace SrtEditor;
 public partial class MainWindow : Window
 {
     private const string FileFilter = "Субтитры SRT (*.srt)|*.srt|Все файлы (*.*)|*.*";
+    private const string AudioFilter = "Аудиофайлы|*.wav;*.mp3;*.ogg;*.oga;*.opus;*.m4a;*.aac;*.flac;*.wma|Все файлы (*.*)|*.*";
     private readonly EditorViewModel editor = new(
         new VersionStore(Path.Combine(AppContext.BaseDirectory, "cache", "versions")));
     private Point dragOrigin;
@@ -25,11 +26,25 @@ public partial class MainWindow : Window
         InitializeComponent();
         DataContext = editor;
         editor.PropertyChanged += Editor_PropertyChanged;
+        editor.CuesChanged += SoundPanel.UpdateCues;
         editor.New();
     }
 
     private void New_Click(object sender, RoutedEventArgs e) => NewDocument();
     private void Open_Click(object sender, RoutedEventArgs e) => OpenDocument();
+    private void OpenAudio_Click(object sender, RoutedEventArgs e)
+    {
+        var dialog = new OpenFileDialog
+        {
+            Title = "Открыть аудиофайл",
+            Filter = AudioFilter,
+            CheckFileExists = true,
+            InitialDirectory = Path.GetDirectoryName(editor.FilePath) ?? ""
+        };
+        if (dialog.ShowDialog(this) == true)
+            SoundPanel.Open(dialog.FileName, editor.Rows.Select(row => row.Data));
+    }
+
     private void Save_Click(object sender, RoutedEventArgs e) => SaveDocument();
     private void SaveAs_Click(object sender, RoutedEventArgs e) => SaveDocument(saveAs: true);
     private void Undo_Click(object sender, RoutedEventArgs e) => editor.Undo();
@@ -168,6 +183,12 @@ public partial class MainWindow : Window
 
     private void Window_Closing(object? sender, CancelEventArgs e) =>
         e.Cancel = !ConfirmDocumentChange();
+
+    protected override void OnClosed(EventArgs e)
+    {
+        SoundPanel.Close();
+        base.OnClosed(e);
+    }
 
     private void Window_PreviewKeyDown(object sender, KeyEventArgs e)
     {
