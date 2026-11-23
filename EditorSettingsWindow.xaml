@@ -5,6 +5,14 @@
         WindowStartupLocation="CenterOwner" ShowInTaskbar="False" Background="#13171D"
         Foreground="#ECF0F4" FontFamily="Segoe UI" FontSize="14" UseLayoutRounding="True">
     <StackPanel Margin="20">
+        <TextBlock Text="Формат ввода времени" Style="{StaticResource SectionTitle}" Margin="0,0,0,8" />
+        <ComboBox x:Name="TimeInputMode" HorizontalAlignment="Stretch" AutomationProperties.Name="Формат ввода времени"
+                  Margin="0,0,0,14">
+            <ComboBoxItem Content="Одно поле (00:00:00,000)" />
+            <ComboBoxItem Content="Отдельные поля (HH, MM, SS, MS)" />
+        </ComboBox>
+        <TextBlock x:Name="TimeInputStatus" Foreground="{StaticResource Error}" FontSize="12"
+                   TextWrapping="Wrap" Visibility="Collapsed" Margin="0,0,0,10" />
         <TextBlock Text="Локальная история" Style="{StaticResource SectionTitle}" Margin="0,0,0,8" />
         <TextBlock Text="Версии хранятся в папке рядом с редактором." Style="{StaticResource Caption}"
                    TextWrapping="Wrap" Margin="0,0,0,6" />

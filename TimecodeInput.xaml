@@ -1,0 +1,65 @@
+<UserControl x:Class="SrtEditor.TimecodeInput" Focusable="False" IsTabStop="False"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:local="clr-namespace:SrtEditor">
+    <UserControl.Resources>
+        <Style x:Key="TimeBox" TargetType="TextBox" BasedOn="{StaticResource {x:Type TextBox}}">
+            <Setter Property="FontFamily" Value="Consolas" />
+            <Setter Property="MinHeight" Value="32" />
+            <Setter Property="Padding" Value="3,3" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+            <Setter Property="IsUndoEnabled" Value="False" />
+            <EventSetter Event="GotKeyboardFocus" Handler="TimeBox_GotKeyboardFocus" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="TextBox">
+                        <Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}" Padding="{TemplateBinding Padding}">
+                            <Grid>
+                                <ScrollViewer x:Name="PART_ContentHost" VerticalAlignment="Center" />
+                                <TextBlock x:Name="Placeholder" Text="{TemplateBinding Tag}" IsHitTestVisible="False"
+                                           Foreground="{StaticResource Muted}" VerticalAlignment="Center" Visibility="Collapsed" />
+                            </Grid>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="Text" Value="">
+                                <Setter TargetName="Placeholder" Property="Visibility" Value="Visible" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </UserControl.Resources>
+    <StackPanel>
+        <TextBlock Text="{Binding Label, RelativeSource={RelativeSource AncestorType=local:TimecodeInput}}"
+                   Style="{StaticResource Caption}" Margin="0,0,0,2" />
+        <TextBox x:Name="SingleInput" Width="126" HorizontalAlignment="Left" Tag="00:00:00,000"
+                 Text="{Binding Text, RelativeSource={RelativeSource AncestorType=local:TimecodeInput}, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                 Style="{StaticResource TimeBox}"
+                 AutomationProperties.Name="{Binding Label, RelativeSource={RelativeSource AncestorType=local:TimecodeInput}}"
+                 ToolTip="Введите секунды, например 5.250, или время 00:00:05,250" />
+        <StackPanel x:Name="SplitInputs" Orientation="Horizontal" Visibility="Collapsed">
+            <StackPanel Width="44" Margin="0,0,4,0">
+                <TextBlock Text="HH" Style="{StaticResource Caption}" HorizontalAlignment="Right" Margin="0,0,0,2" />
+                <TextBox x:Name="HoursInput" Tag="00" MaxLength="13" Style="{StaticResource TimeBox}"
+                         AutomationProperties.Name="{Binding Label, RelativeSource={RelativeSource AncestorType=local:TimecodeInput}, StringFormat='{}{0}, часы'}" />
+            </StackPanel>
+            <StackPanel Width="52" Margin="0,0,4,0">
+                <TextBlock Text="MM" Style="{StaticResource Caption}" HorizontalAlignment="Right" Margin="0,0,0,2" />
+                <TextBox x:Name="MinutesInput" Tag="00" MaxLength="2" Style="{StaticResource TimeBox}"
+                         AutomationProperties.Name="{Binding Label, RelativeSource={RelativeSource AncestorType=local:TimecodeInput}, StringFormat='{}{0}, минуты'}" />
+            </StackPanel>
+            <StackPanel Width="53" Margin="0,0,4,0">
+                <TextBlock Text="SS" Style="{StaticResource Caption}" HorizontalAlignment="Right" Margin="0,0,0,2" />
+                <TextBox x:Name="SecondsInput" Tag="00" MaxLength="2" Style="{StaticResource TimeBox}"
+                         AutomationProperties.Name="{Binding Label, RelativeSource={RelativeSource AncestorType=local:TimecodeInput}, StringFormat='{}{0}, секунды'}" />
+            </StackPanel>
+            <StackPanel Width="46">
+                <TextBlock Text="MS" Style="{StaticResource Caption}" HorizontalAlignment="Right" Margin="0,0,0,2" />
+                <TextBox x:Name="MillisecondsInput" Tag="000" MaxLength="3" Style="{StaticResource TimeBox}"
+                         AutomationProperties.Name="{Binding Label, RelativeSource={RelativeSource AncestorType=local:TimecodeInput}, StringFormat='{}{0}, миллисекунды'}" />
+            </StackPanel>
+        </StackPanel>
+    </StackPanel>
+</UserControl>

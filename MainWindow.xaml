@@ -8,14 +8,6 @@
         FontFamily="Segoe UI" FontSize="14" UseLayoutRounding="True"
         PreviewKeyDown="Window_PreviewKeyDown" Closing="Window_Closing">
     <Window.Resources>
-        <Style x:Key="TimeInput" TargetType="TextBox" BasedOn="{StaticResource {x:Type TextBox}}">
-            <Setter Property="FontFamily" Value="Consolas" />
-            <Setter Property="MinHeight" Value="32" />
-            <Setter Property="VerticalContentAlignment" Value="Center" />
-            <Setter Property="IsUndoEnabled" Value="False" />
-            <EventSetter Event="LostKeyboardFocus" Handler="Field_LostKeyboardFocus" />
-            <EventSetter Event="GotKeyboardFocus" Handler="TimeInput_GotKeyboardFocus" />
-        </Style>
         <Style x:Key="CueContainer" TargetType="ListBoxItem">
             <Setter Property="AutomationProperties.Name" Value="{Binding Number, StringFormat='Субтитр {0}'}" />
             <Setter Property="HorizontalContentAlignment" Value="Stretch" />
@@ -152,18 +144,14 @@
                                         </StackPanel>
                                         <StackPanel Grid.Column="1">
                                             <WrapPanel Margin="0,0,0,6">
-                                                <StackPanel Width="126" Margin="0,0,8,4">
-                                                    <TextBlock Text="Начало" Style="{StaticResource Caption}" Margin="0,0,0,2" />
-                                                    <TextBox x:Name="StartInput" Text="{Binding Start, UpdateSourceTrigger=PropertyChanged}"
-                                                             Style="{StaticResource TimeInput}" AutomationProperties.Name="Начало"
-                                                             ToolTip="Пример: 5.250 или 00:00:05,250. Enter — перейти к следующему началу." />
-                                                </StackPanel>
-                                                <StackPanel Width="126" Margin="0,0,8,4">
-                                                    <TextBlock Text="Конец" Style="{StaticResource Caption}" Margin="0,0,0,2" />
-                                                    <TextBox x:Name="EndInput" Text="{Binding End, UpdateSourceTrigger=PropertyChanged}"
-                                                             Style="{StaticResource TimeInput}" AutomationProperties.Name="Конец"
-                                                             ToolTip="Пример: 5.250 или 00:00:05,250" />
-                                                </StackPanel>
+                                                <local:TimecodeInput x:Name="StartInput" Label="Начало" Margin="0,0,8,4"
+                                                                     Text="{Binding Start, UpdateSourceTrigger=PropertyChanged}"
+                                                                     Split="{Binding DataContext.SplitTimeInput, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                                     PreviewKeyDown="StartInput_PreviewKeyDown" LostKeyboardFocus="Field_LostKeyboardFocus" />
+                                                <local:TimecodeInput x:Name="EndInput" Label="Конец" Margin="0,0,8,4"
+                                                                     Text="{Binding End, UpdateSourceTrigger=PropertyChanged}"
+                                                                     Split="{Binding DataContext.SplitTimeInput, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                                     LostKeyboardFocus="Field_LostKeyboardFocus" />
                                                 <Button Content="Взять конец предыдущего" Click="CopyPreviousEnd_Click"
                                                         IsEnabled="{Binding HasPrevious}" VerticalAlignment="Bottom"
                                                         Margin="0,0,0,4" Padding="8,5" FontSize="12" IsTabStop="False"

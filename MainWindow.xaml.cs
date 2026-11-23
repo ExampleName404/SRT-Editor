@@ -18,7 +18,10 @@ public partial class MainWindow : Window
     private const double DefaultAudioPanelHeight = 193;
     private const double MinimumAudioPanelHeight = 164;
     private readonly EditorViewModel editor = new(
-        new VersionStore(Path.Combine(AppContext.BaseDirectory, "cache", "versions")));
+        new VersionStore(Path.Combine(AppContext.BaseDirectory, "cache", "versions")))
+    {
+        SplitTimeInput = EditorPreferences.ReadSplitTimeInput()
+    };
     private Point dragOrigin;
     private CueRow? draggedCue;
     private ListBoxItem? dropMarker;
@@ -245,20 +248,25 @@ public partial class MainWindow : Window
             if (!e.IsRepeat)
                 SoundPanel.TogglePlaybackFromKeyboard();
         }
-        else if (modifiers == ModifierKeys.None && e.Key == Key.Enter &&
-                 e.OriginalSource is TextBox { Name: "StartInput", DataContext: CueRow row })
-        {
-            int next = editor.Rows.IndexOf(row) + 1;
-            if (next < editor.Rows.Count)
-                FocusTimeField(editor.Rows[next], "StartInput");
-            else
-                FocusTimeField(row, "EndInput");
-        }
         else
         {
             return;
         }
 
+        e.Handled = true;
+    }
+
+    private void StartInput_PreviewKeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key != Key.Enter || Keyboard.Modifiers != ModifierKeys.None ||
+            sender is not TimecodeInput { DataContext: CueRow row })
+            return;
+
+        int next = editor.Rows.IndexOf(row) + 1;
+        if (next < editor.Rows.Count)
+            FocusTimeField(editor.Rows[next], "StartInput");
+        else
+            FocusTimeField(row, "EndInput");
         e.Handled = true;
     }
 
@@ -286,7 +294,7 @@ public partial class MainWindow : Window
         Dispatcher.BeginInvoke(DispatcherPriority.Loaded, new Action(() =>
         {
             if (CueList.ItemContainerGenerator.ContainerFromItem(row) is ListBoxItem item)
-                FindVisual<TextBox>(item, input => input.Name == field)?.Focus();
+                FindVisual<TimecodeInput>(item, input => input.Name == field)?.FocusEditor();
         }));
     }
 
@@ -296,11 +304,13 @@ public partial class MainWindow : Window
             CueList.ScrollIntoView(editor.Selected);
     }
 
-    private void Field_LostKeyboardFocus(object sender, KeyboardFocusChangedEventArgs e) =>
-        editor.EndEdit();
+    private void Field_LostKeyboardFocus(object sender, KeyboardFocusChangedEventArgs e)
+    {
+        if (sender is TimecodeInput input && e.NewFocus is Visual next && input.IsAncestorOf(next))
+            return;
 
-    private void TimeInput_GotKeyboardFocus(object sender, KeyboardFocusChangedEventArgs e) =>
-        ((TextBox)sender).SelectAll();
+        editor.EndEdit();
+    }
 
     private void Cue_PreviewGotKeyboardFocus(object sender, KeyboardFocusChangedEventArgs e)
     {

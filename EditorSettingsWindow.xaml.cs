@@ -1,7 +1,9 @@
 using System.ComponentModel;
 using System.Diagnostics;
+using System.IO;
 using System.Reflection;
 using System.Windows;
+using System.Windows.Controls;
 using System.Windows.Navigation;
 
 namespace SrtEditor;
@@ -14,11 +16,31 @@ public partial class EditorSettingsWindow : Window
     {
         this.editor = editor;
         InitializeComponent();
+        TimeInputMode.SelectedIndex = editor.SplitTimeInput ? 1 : 0;
+        TimeInputMode.SelectionChanged += TimeInputMode_SelectionChanged;
         CacheFolder.Text = editor.CachePath;
         var assembly = typeof(App).Assembly;
         string? version = assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion
             ?? assembly.GetName().Version?.ToString(3);
         ReleaseVersion.Text = $"Версия {version}";
+    }
+
+    private void TimeInputMode_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (TimeInputMode.SelectedIndex < 0)
+            return;
+
+        editor.SplitTimeInput = TimeInputMode.SelectedIndex == 1;
+        try
+        {
+            EditorPreferences.SaveSplitTimeInput(editor.SplitTimeInput);
+            TimeInputStatus.Visibility = Visibility.Collapsed;
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            TimeInputStatus.Text = "Не удалось сохранить выбор формата ввода. Он будет действовать в текущем окне.";
+            TimeInputStatus.Visibility = Visibility.Visible;
+        }
     }
 
     private void GitHub_RequestNavigate(object sender, RequestNavigateEventArgs e)

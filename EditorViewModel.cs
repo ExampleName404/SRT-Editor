@@ -107,6 +107,7 @@ internal sealed class EditorViewModel(VersionStore versionStore) : ObservableMod
     private string validation = "";
     private bool isDirty;
     private bool showChanges = true;
+    private bool splitTimeInput;
     private FileVersion? comparisonVersion;
     private string diffSummary = "";
     private IReadOnlyList<PreviewCue> previewRows = [];
@@ -145,6 +146,12 @@ internal sealed class EditorViewModel(VersionStore versionStore) : ObservableMod
     public string DiffSummary { get => diffSummary; private set => Set(ref diffSummary, value); }
     public string CachePath => versionStore.DirectoryPath;
     public bool HasOlderComparison => comparisonVersion is not null;
+    public bool SplitTimeInput
+    {
+        get => splitTimeInput;
+        set => Set(ref splitTimeInput, value);
+    }
+
     public string ComparisonLabel => comparisonVersion is not null
         ? $"Версия от {comparisonVersion.RecordedAt.ToLocalTime():dd.MM.yyyy HH:mm:ss}"
         : HasFile ? "Последняя сохранённая версия" : "Новый документ";
