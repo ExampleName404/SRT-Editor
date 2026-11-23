@@ -5,23 +5,26 @@ namespace SrtEditor;
 
 public sealed class AudioWaveform
 {
-    internal AudioWaveform(float[][] minimum, float[][] maximum, int count, float peak)
+    internal AudioWaveform(float[][] minimum, float[][] maximum, int count, float peak, double peakExtent)
     {
         Minimum = minimum;
         Maximum = maximum;
         Count = count;
         Peak = peak;
+        PeakExtent = peakExtent;
     }
 
     internal float[][] Minimum { get; }
     internal float[][] Maximum { get; }
     internal int Count { get; }
     internal float Peak { get; }
+    // The last bucket can represent fewer frames than the others.
+    internal double PeakExtent { get; }
 }
 
 internal static class AudioWaveformReader
 {
-    private const int MaximumPeaks = 2048;
+    private const int MaximumPeaks = 131_072;
 
     public static AudioWaveform Read(string path, CancellationToken cancellation)
     {
@@ -87,7 +90,8 @@ internal static class AudioWaveformReader
 
         cancellation.ThrowIfCancellationRequested();
         int count = peakIndex + (framesInPeak > 0 ? 1 : 0);
-        return new AudioWaveform(minimum, maximum, count, peak);
+        double peakExtent = peakIndex + (double)framesInPeak / framesPerPeak;
+        return new AudioWaveform(minimum, maximum, count, peak, peakExtent);
     }
 
     private static void CombineAdjacentPeaks(float[][] minimum, float[][] maximum)

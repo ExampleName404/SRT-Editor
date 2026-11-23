@@ -59,7 +59,8 @@
                         UseLayoutRounding="False" Cursor="Hand" IsEnabled="{Binding CanSeek}"
                         PreviewMouseLeftButtonDown="Scrub_MouseDown" PreviewMouseMove="Scrub_MouseMove"
                         PreviewMouseLeftButtonUp="Scrub_MouseUp" LostMouseCapture="Scrub_LostCapture"
-                        ToolTip="Нажмите или перетащите для перемотки">
+                        PreviewMouseWheel="Waveform_MouseWheel"
+                        ToolTip="Щелчок перематывает, колесо меняет масштаб, Shift с колесом прокручивает волну">
                     <Grid Margin="{StaticResource AudioSliderInset}">
                         <local:WaveformView x:Name="WaveDisplay" Waveform="{Binding Waveform}" Progress="{Binding Progress}"
                                             IsHitTestVisible="False" AutomationProperties.Name="Звуковая волна" />
@@ -83,9 +84,9 @@
                     </Button.Style>
                 </Button>
                 <Slider x:Name="PositionSlider" Grid.Row="3" Margin="1,0" UseLayoutRounding="False"
-                        Style="{StaticResource AudioSlider}" Minimum="0" Maximum="{Binding TimelineLength}"
+                        Style="{StaticResource AudioSlider}" Minimum="0" Maximum="1"
                         FocusVisualStyle="{DynamicResource {x:Static SystemParameters.FocusVisualStyleKey}}"
-                        Value="{Binding Position, Mode=OneWay}" SmallChange="100" LargeChange="1000"
+                        SmallChange="100" LargeChange="1000"
                         IsMoveToPointEnabled="False" IsEnabled="{Binding CanSeek}" ValueChanged="PositionSlider_ValueChanged"
                         PreviewMouseLeftButtonDown="Scrub_MouseDown" PreviewMouseMove="Scrub_MouseMove"
                         PreviewMouseLeftButtonUp="Scrub_MouseUp" LostMouseCapture="Scrub_LostCapture"
@@ -96,22 +97,87 @@
                         </ControlTemplate>
                     </Slider.Resources>
                 </Slider>
-                <DockPanel Grid.Row="4">
-                    <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Margin="8,0,0,0">
-                        <TextBlock Text="Громкость" Style="{StaticResource Caption}"
-                                   VerticalAlignment="Center" Margin="0,0,6,0" />
-                        <Slider Style="{StaticResource AudioSlider}" Width="82" Minimum="0" Maximum="1"
-                                SmallChange="0.05" LargeChange="0.1" Value="{Binding Volume, Mode=TwoWay}"
-                                AutomationProperties.Name="Громкость" />
-                    </StackPanel>
-                    <StackPanel VerticalAlignment="Center">
-                        <TextBlock Text="{Binding Status}" ToolTip="{Binding ErrorDetails}" TextWrapping="Wrap"
-                                   Style="{StaticResource Caption}"
-                                   Visibility="{Binding HasStatus, Converter={StaticResource VisibleWhenTrue}}" />
-                        <TextBlock x:Name="PositionError" Foreground="{StaticResource Error}" TextWrapping="Wrap"
-                                   Style="{StaticResource Caption}" Visibility="Collapsed" AutomationProperties.LiveSetting="Polite" />
-                    </StackPanel>
-                </DockPanel>
+                <StackPanel Grid.Row="4">
+                    <DockPanel>
+                        <StackPanel DockPanel.Dock="Left" Orientation="Horizontal"
+                                    Visibility="{Binding HasSource, Converter={StaticResource VisibleWhenTrue}}">
+                            <StackPanel.Resources>
+                                <Style x:Key="ZoomButton" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+                                    <Setter Property="MinHeight" Value="22" />
+                                    <Setter Property="MinWidth" Value="26" />
+                                    <Setter Property="Padding" Value="4,0" />
+                                    <Setter Property="FontSize" Value="12" />
+                                </Style>
+                            </StackPanel.Resources>
+                            <Button x:Name="ZoomOutButton" Content="−" Style="{StaticResource ZoomButton}"
+                                    Click="ZoomOut_Click" ToolTip="Уменьшить масштаб" AutomationProperties.Name="Уменьшить масштаб" />
+                            <Button x:Name="ZoomResetButton" Content="1×" Style="{StaticResource ZoomButton}" MinWidth="40"
+                                    Margin="4,0" Click="ZoomReset_Click" ToolTip="Показать всю запись"
+                                    AutomationProperties.Name="Показать всю запись" />
+                            <Button x:Name="ZoomInButton" Content="+" Style="{StaticResource ZoomButton}"
+                                    Click="ZoomIn_Click" ToolTip="Увеличить масштаб" AutomationProperties.Name="Увеличить масштаб" />
+                        </StackPanel>
+                        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Margin="8,0,0,0">
+                            <TextBlock Text="Громкость" Style="{StaticResource Caption}"
+                                       VerticalAlignment="Center" Margin="0,0,6,0" />
+                            <Slider Style="{StaticResource AudioSlider}" Width="82" Minimum="0" Maximum="1"
+                                    SmallChange="0.05" LargeChange="0.1" Value="{Binding Volume, Mode=TwoWay}"
+                                    AutomationProperties.Name="Громкость" />
+                        </StackPanel>
+                        <ScrollBar x:Name="WaveformScroll" Orientation="Horizontal" Visibility="Collapsed"
+                                   VerticalAlignment="Center" Height="18" Margin="10,0,2,0" Scroll="WaveformScroll_Scroll"
+                                   ToolTip="Прокрутить увеличенную волну" AutomationProperties.Name="Прокрутка звуковой волны">
+                            <ScrollBar.Template>
+                                <ControlTemplate TargetType="ScrollBar">
+                                    <ControlTemplate.Resources>
+                                        <Style x:Key="WaveformScrollPage" TargetType="RepeatButton">
+                                            <Setter Property="OverridesDefaultStyle" Value="True" />
+                                            <Setter Property="Focusable" Value="False" />
+                                            <Setter Property="Template">
+                                                <Setter.Value>
+                                                    <ControlTemplate TargetType="RepeatButton">
+                                                        <Border Background="Transparent" />
+                                                    </ControlTemplate>
+                                                </Setter.Value>
+                                            </Setter>
+                                        </Style>
+                                    </ControlTemplate.Resources>
+                                    <Grid Background="Transparent">
+                                        <Border Height="4" VerticalAlignment="Center" CornerRadius="2"
+                                                Background="{StaticResource Line}" />
+                                        <Track x:Name="PART_Track" Orientation="Horizontal">
+                                            <Track.DecreaseRepeatButton>
+                                                <RepeatButton Style="{StaticResource WaveformScrollPage}" Command="ScrollBar.PageLeftCommand" />
+                                            </Track.DecreaseRepeatButton>
+                                            <Track.IncreaseRepeatButton>
+                                                <RepeatButton Style="{StaticResource WaveformScrollPage}" Command="ScrollBar.PageRightCommand" />
+                                            </Track.IncreaseRepeatButton>
+                                            <Track.Thumb>
+                                                <Thumb x:Name="ScrollThumb" Background="{StaticResource Muted}" Cursor="SizeWE" MinWidth="18">
+                                                    <Thumb.Template>
+                                                        <ControlTemplate TargetType="Thumb">
+                                                            <Border Height="8" VerticalAlignment="Center" CornerRadius="4"
+                                                                    Background="{TemplateBinding Background}" />
+                                                        </ControlTemplate>
+                                                    </Thumb.Template>
+                                                </Thumb>
+                                            </Track.Thumb>
+                                        </Track>
+                                    </Grid>
+                                    <ControlTemplate.Triggers>
+                                        <Trigger Property="IsMouseOver" Value="True">
+                                            <Setter TargetName="ScrollThumb" Property="Background" Value="{StaticResource Accent}" />
+                                        </Trigger>
+                                    </ControlTemplate.Triggers>
+                                </ControlTemplate>
+                            </ScrollBar.Template>
+                        </ScrollBar>
+                    </DockPanel>
+                    <TextBlock Text="{Binding Status}" ToolTip="{Binding ErrorDetails}" TextWrapping="Wrap"
+                               Style="{StaticResource Caption}" Visibility="{Binding HasStatus, Converter={StaticResource VisibleWhenTrue}}" />
+                    <TextBlock x:Name="PositionError" Foreground="{StaticResource Error}" TextWrapping="Wrap"
+                               Style="{StaticResource Caption}" Visibility="Collapsed" AutomationProperties.LiveSetting="Polite" />
+                </StackPanel>
             </Grid>
             <Border Grid.Column="2" Background="{StaticResource Field}" BorderBrush="{StaticResource Line}"
                     BorderThickness="1" CornerRadius="6" Padding="10,6" MinHeight="106">

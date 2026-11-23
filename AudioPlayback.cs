@@ -41,6 +41,7 @@ internal sealed class AudioPlayback : ObservableModel
     public bool HasSource => FilePath is not null;
     public bool IsReady => state is PlaybackState.Ready or PlaybackState.Playing or PlaybackState.Ended;
     public bool CanSeek => IsReady && duration > 0;
+    internal bool IsPlaying => state == PlaybackState.Playing;
     public string PlayLabel => state == PlaybackState.Playing ? "Пауза" : "Воспроизвести";
     public string? FilePath => path;
     public string FileName => Path.GetFileName(path) ?? "";

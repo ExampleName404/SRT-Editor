@@ -21,6 +21,7 @@ public sealed class WaveformView : FrameworkElement
 
     private AudioWaveform? renderedWave;
     private Size renderedSize;
+    private WaveformViewport viewport = WaveformViewport.Full;
     private DrawingGroup? cachedDrawing;
 
     public WaveformView() => IsEnabledChanged += (_, _) => InvalidateVisual();
@@ -37,6 +38,16 @@ public sealed class WaveformView : FrameworkElement
         set => SetValue(ProgressProperty, value);
     }
 
+    internal void SetViewport(WaveformViewport value)
+    {
+        if (viewport == value)
+            return;
+
+        viewport = value;
+        cachedDrawing = null;
+        InvalidateVisual();
+    }
+
     protected override void OnRender(DrawingContext context)
     {
         var size = RenderSize;
@@ -47,14 +58,14 @@ public sealed class WaveformView : FrameworkElement
         {
             renderedWave = Waveform;
             renderedSize = size;
-            cachedDrawing = DrawWaveform(Waveform, size);
+            cachedDrawing = DrawWaveform(Waveform, size, viewport);
         }
         context.DrawDrawing(cachedDrawing);
 
-        double x = Math.Clamp(Progress, 0, 1) * size.Width;
+        double x = Math.Clamp(viewport.ToView(Progress), 0, 1) * size.Width;
         if (x > 0)
             context.DrawRectangle(PlayedBrush, null, new Rect(0, 0, x, size.Height));
-        if (IsEnabled)
+        if (IsEnabled && viewport.Contains(Progress))
             DrawPlayhead(context, x, size.Height);
     }
 
@@ -84,7 +95,7 @@ public sealed class WaveformView : FrameworkElement
         context.DrawGeometry(PlayheadBrush, null, shape);
     }
 
-    private static DrawingGroup DrawWaveform(AudioWaveform? wave, Size size)
+    private static DrawingGroup DrawWaveform(AudioWaveform? wave, Size size, WaveformViewport viewport)
     {
         var result = new DrawingGroup();
         using (var drawing = result.Open())
@@ -103,7 +114,7 @@ public sealed class WaveformView : FrameworkElement
                         drawing.DrawLine(LaneDivider, new Point(0, top), new Point(size.Width, top));
 
                     drawing.DrawLine(CenterLine, new Point(0, middle), new Point(size.Width, middle));
-                    var envelope = BuildEnvelope(wave, lane, size.Width, middle, scale);
+                    var envelope = BuildEnvelope(wave, lane, size.Width, middle, scale, viewport);
                     drawing.DrawGeometry(WaveBrush, null, envelope);
                 }
             }
@@ -112,15 +123,18 @@ public sealed class WaveformView : FrameworkElement
         return result;
     }
 
-    private static StreamGeometry BuildEnvelope(AudioWaveform wave, int lane, double width, double middle, double scale)
+    private static StreamGeometry BuildEnvelope(AudioWaveform wave, int lane, double width, double middle, double scale,
+        WaveformViewport viewport)
     {
-        int columns = (int)Math.Clamp(Math.Ceiling(width), 1, wave.Count);
+        double firstPeak = viewport.Start * wave.PeakExtent;
+        double visiblePeaks = viewport.Length * wave.PeakExtent;
+        int columns = Math.Max(1, (int)Math.Ceiling(Math.Min(width, visiblePeaks)));
         var highs = new Point[columns + 1];
         var lows = new Point[columns + 1];
         for (int column = 0; column < columns; column++)
         {
-            int first = column * wave.Count / columns;
-            int end = (column + 1) * wave.Count / columns;
+            int first = (int)Math.Floor(firstPeak + visiblePeaks * column / columns);
+            int end = Math.Min(wave.Count, (int)Math.Ceiling(firstPeak + visiblePeaks * (column + 1) / columns));
             float upper = 0;
             float lower = 0;
             for (int index = first; index < end; index++)
