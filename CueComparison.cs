@@ -7,16 +7,6 @@ internal sealed record PreviewCue(Cue? Current, int Number, Cue? Previous, int P
     public bool Removed => Current is null;
     public bool Edited => Current is not null && Previous is not null && !CueComparison.SameContent(Current, Previous);
     public bool Changed => Added || Removed || Edited || Moved;
-    public bool ShowPrevious => Edited || Moved;
-    public string Caption => Removed ? $"Удалён · был №{PreviousNumber}"
-        : Added ? "Добавлен"
-        : Moved ? $"Перемещён · был №{PreviousNumber}" + (Edited ? " · изменён" : "")
-        : Edited ? "Изменён" : "";
-    public string AccessibleName => Changed
-        ? $"Блок {(Removed ? PreviousNumber : Number)}. {Caption}"
-        : $"Блок {Number}";
-    public string Block => SrtFile.RenderBlock((Current ?? Previous)!, Removed ? PreviousNumber : Number, "\r\n");
-    public string PreviousBlock => Previous is null ? "" : SrtFile.RenderBlock(Previous, PreviousNumber, "\r\n");
     public string RestoreLabel => Added ? "Убрать добавленный блок" : "Вернуть блок из версии";
 }
 

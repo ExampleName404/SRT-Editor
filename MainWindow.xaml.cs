@@ -18,11 +18,13 @@ public partial class MainWindow : Window
     private Point dragOrigin;
     private CueRow? draggedCue;
     private ListBoxItem? dropMarker;
+    private Guid? diffRestoreTarget;
 
     public MainWindow()
     {
         InitializeComponent();
         DataContext = editor;
+        editor.PropertyChanged += Editor_PropertyChanged;
         editor.New();
     }
 
@@ -62,17 +64,30 @@ public partial class MainWindow : Window
     private void Settings_Click(object sender, RoutedEventArgs e) =>
         new EditorSettingsWindow(editor) { Owner = this }.ShowDialog();
 
-    private void DiffBlock_ContextMenuOpening(object sender, ContextMenuEventArgs e)
+    private void Editor_PropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
-        if (sender is FrameworkElement { DataContext: PreviewCue { Changed: false } })
-            e.Handled = true;
+        if (e.PropertyName == nameof(EditorViewModel.PreviewRows))
+            InlinePreview.Update(DiffPreview, editor.PreviewRows);
+    }
+
+    private void DiffPreview_ContextMenuOpening(object sender, ContextMenuEventArgs e)
+    {
+        var position = e.CursorLeft < 0
+            ? DiffPreview.CaretPosition
+            : DiffPreview.GetPositionFromPoint(Mouse.GetPosition(DiffPreview), snapToText: false);
+        var row = position?.Paragraph?.Tag as PreviewCue;
+        diffRestoreTarget = row is { Changed: true } ? row.Id : null;
+        DiffRestoreItem.Visibility = DiffRestoreSeparator.Visibility =
+            diffRestoreTarget.HasValue ? Visibility.Visible : Visibility.Collapsed;
+        if (diffRestoreTarget.HasValue)
+            DiffRestoreItem.Header = row!.RestoreLabel;
     }
 
     private void RestorePreviewCue_Click(object sender, RoutedEventArgs e)
     {
-        if (sender is MenuItem { DataContext: PreviewCue row })
+        if (diffRestoreTarget is Guid id)
         {
-            editor.RestorePreviewCue(row.Id);
+            editor.RestorePreviewCue(id);
             ScrollToSelected();
         }
     }

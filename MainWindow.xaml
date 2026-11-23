@@ -43,19 +43,6 @@
             </Setter>
             <EventSetter Event="PreviewGotKeyboardFocus" Handler="Cue_PreviewGotKeyboardFocus" />
         </Style>
-        <Style x:Key="DiffContainer" TargetType="ListBoxItem">
-            <Setter Property="AutomationProperties.Name" Value="{Binding AccessibleName}" />
-            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
-            <Setter Property="Padding" Value="0" />
-            <Setter Property="Margin" Value="0,0,0,6" />
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="ListBoxItem">
-                        <ContentPresenter />
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
     </Window.Resources>
 
     <Grid Margin="24,20,24,12">
@@ -250,59 +237,27 @@
                             </Style>
                         </TextBox.Style>
                     </TextBox>
-                    <ListBox Grid.Row="2" ItemsSource="{Binding PreviewRows}" Background="Transparent"
-                             BorderThickness="0" Padding="0" Foreground="#ECF0F4"
-                             ScrollViewer.HorizontalScrollBarVisibility="Disabled" VirtualizingPanel.ScrollUnit="Pixel"
-                             ItemContainerStyle="{StaticResource DiffContainer}" AutomationProperties.Name="Изменения SRT"
-                             Visibility="{Binding ShowChanges, Converter={StaticResource VisibleWhenTrue}}">
-                        <ListBox.ItemTemplate>
-                            <DataTemplate>
-                                <Border Padding="10,7" CornerRadius="5" BorderThickness="2,0,0,0"
-                                        ContextMenuOpening="DiffBlock_ContextMenuOpening">
-                                    <Border.Style>
-                                        <Style TargetType="Border">
-                                            <Setter Property="Background" Value="{StaticResource Field}" />
-                                            <Setter Property="BorderBrush" Value="Transparent" />
-                                            <Style.Triggers>
-                                                <DataTrigger Binding="{Binding Changed}" Value="True">
-                                                    <Setter Property="Background" Value="#342B20" />
-                                                    <Setter Property="BorderBrush" Value="{StaticResource Warning}" />
-                                                    <Setter Property="ToolTip" Value="Правая кнопка мыши — восстановить блок из версии" />
-                                                </DataTrigger>
-                                                <DataTrigger Binding="{Binding Added}" Value="True">
-                                                    <Setter Property="Background" Value="#1D352E" />
-                                                    <Setter Property="BorderBrush" Value="{StaticResource Accent}" />
-                                                    <Setter Property="ToolTip" Value="Правая кнопка мыши — убрать добавленный блок" />
-                                                </DataTrigger>
-                                                <DataTrigger Binding="{Binding Removed}" Value="True">
-                                                    <Setter Property="Background" Value="#39272B" />
-                                                    <Setter Property="BorderBrush" Value="{StaticResource Error}" />
-                                                </DataTrigger>
-                                            </Style.Triggers>
-                                        </Style>
-                                    </Border.Style>
-                                    <Border.ContextMenu>
-                                        <ContextMenu DataContext="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource Self}}">
-                                            <MenuItem Header="{Binding RestoreLabel}" Click="RestorePreviewCue_Click" />
-                                        </ContextMenu>
-                                    </Border.ContextMenu>
-                                    <StackPanel>
-                                        <TextBlock Text="{Binding Caption}" FontSize="12" FontWeight="SemiBold"
-                                                   Foreground="{StaticResource Muted}" Margin="0,0,0,4"
-                                                   Visibility="{Binding Changed, Converter={StaticResource VisibleWhenTrue}}" />
-                                        <TextBlock Text="{Binding Block}" FontFamily="Consolas" FontSize="13"
-                                                   Foreground="#ECF0F4" TextWrapping="Wrap" />
-                                        <Expander Header="Было в версии" FontSize="12"
-                                                  Foreground="{StaticResource Muted}" Margin="0,6,0,0"
-                                                  Visibility="{Binding ShowPrevious, Converter={StaticResource VisibleWhenTrue}}">
-                                            <TextBlock Text="{Binding PreviousBlock}" FontFamily="Consolas" FontSize="13"
-                                                       TextWrapping="Wrap" Margin="0,4,0,0" />
-                                        </Expander>
-                                    </StackPanel>
-                                </Border>
-                            </DataTemplate>
-                        </ListBox.ItemTemplate>
-                    </ListBox>
+                    <RichTextBox x:Name="DiffPreview" Grid.Row="2" IsReadOnly="True" IsUndoEnabled="False"
+                                 Background="{StaticResource Field}" Foreground="#ECF0F4"
+                                 BorderBrush="{StaticResource Line}" BorderThickness="1"
+                                 FontFamily="Consolas" FontSize="13" Padding="10"
+                                 SelectionBrush="#588475" VerticalScrollBarVisibility="Auto"
+                                 HorizontalScrollBarVisibility="Disabled" AutomationProperties.Name="Изменения SRT"
+                                 Visibility="{Binding ShowChanges, Converter={StaticResource VisibleWhenTrue}}"
+                                 ContextMenuOpening="DiffPreview_ContextMenuOpening">
+                        <RichTextBox.Document>
+                            <FlowDocument PagePadding="0" FontFamily="Consolas" FontSize="13" />
+                        </RichTextBox.Document>
+                        <RichTextBox.ContextMenu>
+                            <ContextMenu>
+                                <MenuItem Header="Копировать" Command="ApplicationCommands.Copy"
+                                          CommandTarget="{Binding PlacementTarget, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
+                                <Separator x:Name="DiffRestoreSeparator" />
+                                <MenuItem x:Name="DiffRestoreItem" Header="Вернуть блок из версии"
+                                          Click="RestorePreviewCue_Click" />
+                            </ContextMenu>
+                        </RichTextBox.ContextMenu>
+                    </RichTextBox>
                 </Grid>
             </Border>
         </Grid>

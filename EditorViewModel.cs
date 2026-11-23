@@ -109,9 +109,10 @@ internal sealed class EditorViewModel(VersionStore versionStore) : ObservableMod
     private bool showChanges;
     private FileVersion? comparisonVersion;
     private string diffSummary = "";
+    private IReadOnlyList<PreviewCue> previewRows = [];
 
     public ObservableCollection<CueRow> Rows { get; } = [];
-    public ObservableCollection<PreviewCue> PreviewRows { get; } = [];
+    public IReadOnlyList<PreviewCue> PreviewRows => previewRows;
     public string? FilePath { get; private set; }
     public bool HasFile => FilePath is not null;
     public string FileName => FilePath is null ? "Новый файл" : Path.GetFileName(FilePath);
@@ -532,23 +533,9 @@ internal sealed class EditorViewModel(VersionStore versionStore) : ObservableMod
 
     private void RefreshDiff(Cue[] cues)
     {
-        if (!ShowChanges)
-        {
-            PreviewRows.Clear();
-            return;
-        }
-
-        var rows = CueComparison.Compare(comparisonVersion?.Cues ?? saved, cues);
-        for (int index = 0; index < rows.Length; index++)
-        {
-            if (index >= PreviewRows.Count)
-                PreviewRows.Add(rows[index]);
-            else if (PreviewRows[index] != rows[index])
-                PreviewRows[index] = rows[index];
-        }
-        while (PreviewRows.Count > rows.Length)
-            PreviewRows.RemoveAt(PreviewRows.Count - 1);
-
+        PreviewCue[] rows = ShowChanges ? CueComparison.Compare(comparisonVersion?.Cues ?? saved, cues) : [];
+        if (!previewRows.SequenceEqual(rows))
+            Set(ref previewRows, rows, nameof(PreviewRows));
         int changed = rows.Count(row => row.Changed);
         DiffSummary = changed == 0 ? "Изменений нет" : $"Изменённых блоков: {changed}";
     }
