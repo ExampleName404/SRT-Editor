@@ -276,20 +276,37 @@
                       AutomationProperties.Name="Высота панели аудио">
             <GridSplitter.Template>
                 <ControlTemplate TargetType="GridSplitter">
-                    <Grid Background="Transparent">
-                        <Line x:Name="Guide" X2="1" Stretch="Fill" VerticalAlignment="Center" Margin="4,0"
-                              Stroke="#677487" StrokeThickness="1.5" StrokeDashArray="5,5" StrokeDashCap="Round"
-                              IsHitTestVisible="False" />
-                        <Border x:Name="Grip" HorizontalAlignment="Center" VerticalAlignment="Center"
+                    <Grid Background="Transparent" UseLayoutRounding="False">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="62" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <Grid.Resources>
+                            <Style TargetType="Line">
+                                <Setter Property="Stretch" Value="Fill" />
+                                <Setter Property="VerticalAlignment" Value="Center" />
+                                <Setter Property="Stroke" Value="#677487" />
+                                <Setter Property="StrokeThickness" Value="1.5" />
+                                <Setter Property="StrokeDashArray" Value="5,5" />
+                                <Setter Property="StrokeDashCap" Value="Round" />
+                                <Setter Property="IsHitTestVisible" Value="False" />
+                            </Style>
+                        </Grid.Resources>
+                        <Line x:Name="LeftGuide" X1="1" Margin="4,0,0,0" />
+                        <Border x:Name="Grip" Grid.Column="1" HorizontalAlignment="Center" VerticalAlignment="Center"
                                 Width="42" Height="4" CornerRadius="2" Background="{StaticResource Muted}" />
+                        <Line x:Name="RightGuide" Grid.Column="2" X2="1" Margin="0,0,4,0" />
                     </Grid>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsMouseOver" Value="True">
-                            <Setter TargetName="Guide" Property="Stroke" Value="{StaticResource Accent}" />
+                            <Setter TargetName="LeftGuide" Property="Stroke" Value="{StaticResource Accent}" />
+                            <Setter TargetName="RightGuide" Property="Stroke" Value="{StaticResource Accent}" />
                             <Setter TargetName="Grip" Property="Background" Value="{StaticResource Accent}" />
                         </Trigger>
                         <Trigger Property="IsKeyboardFocused" Value="True">
-                            <Setter TargetName="Guide" Property="Stroke" Value="{StaticResource Accent}" />
+                            <Setter TargetName="LeftGuide" Property="Stroke" Value="{StaticResource Accent}" />
+                            <Setter TargetName="RightGuide" Property="Stroke" Value="{StaticResource Accent}" />
                             <Setter TargetName="Grip" Property="Background" Value="{StaticResource Accent}" />
                         </Trigger>
                     </ControlTemplate.Triggers>

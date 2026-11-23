@@ -55,6 +55,7 @@
                 </DockPanel>
                 <Border Grid.Row="2" Panel.ZIndex="1" Margin="0,6,0,0" Background="{StaticResource Field}"
                         BorderBrush="{StaticResource Line}" BorderThickness="1" CornerRadius="4"
+                        Visibility="{Binding HasSource, Converter={StaticResource VisibleWhenTrue}}"
                         UseLayoutRounding="False" Cursor="Hand" IsEnabled="{Binding CanSeek}"
                         PreviewMouseLeftButtonDown="Scrub_MouseDown" PreviewMouseMove="Scrub_MouseMove"
                         PreviewMouseLeftButtonUp="Scrub_MouseUp" LostMouseCapture="Scrub_LostCapture"
@@ -68,6 +69,19 @@
                                    Visibility="{Binding HasWaveformMessage, Converter={StaticResource VisibleWhenTrue}}" />
                     </Grid>
                 </Border>
+                <Button Grid.Row="2" Margin="0,6,0,0" Background="{StaticResource Field}"
+                        Foreground="{StaticResource Muted}" FontSize="12" MinHeight="0" Padding="8,2"
+                        Content="Нажмите, чтобы открыть аудио" Click="OpenAudio_Click">
+                    <Button.Style>
+                        <Style TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding HasSource}" Value="True">
+                                    <Setter Property="Visibility" Value="Collapsed" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Button.Style>
+                </Button>
                 <Slider x:Name="PositionSlider" Grid.Row="3" Margin="1,0" UseLayoutRounding="False"
                         Style="{StaticResource AudioSlider}" Minimum="0" Maximum="{Binding TimelineLength}"
                         FocusVisualStyle="{DynamicResource {x:Static SystemParameters.FocusVisualStyleKey}}"
