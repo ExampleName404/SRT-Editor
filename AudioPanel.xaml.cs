@@ -10,6 +10,7 @@ public partial class AudioPanel : UserControl
 {
     private readonly AudioPlayback playback = new();
     private WaveformViewport viewport = WaveformViewport.Full;
+    private (double PointerX, WaveformViewport Viewport)? waveformPan;
     private double previousProgress;
     private bool updatingPositionSlider;
 
@@ -28,6 +29,7 @@ public partial class AudioPanel : UserControl
     internal void Open(string path, IEnumerable<Cue> cues)
     {
         EndPositionEdit();
+        EndWaveformPan();
         SetViewport(WaveformViewport.Full);
         playback.Open(path, cues);
     }
@@ -36,6 +38,7 @@ public partial class AudioPanel : UserControl
     internal void Close()
     {
         EndPositionEdit();
+        EndWaveformPan();
         SetViewport(WaveformViewport.Full);
         playback.Close();
     }
@@ -96,7 +99,7 @@ public partial class AudioPanel : UserControl
 
     private void Waveform_MouseWheel(object sender, MouseWheelEventArgs e)
     {
-        if (!playback.CanSeek || playback.Waveform is null || WaveDisplay.ActualWidth <= 0 ||
+        if (!playback.CanSeek || playback.Waveform is null || WaveDisplay.ActualWidth <= 0 || waveformPan is not null ||
             e.LeftButton == MouseButtonState.Pressed)
             return;
 
@@ -113,7 +116,7 @@ public partial class AudioPanel : UserControl
 
     private void RevealPlayhead()
     {
-        if (!viewport.Contains(playback.Progress))
+        if (waveformPan is null && !viewport.Contains(playback.Progress))
             SetViewport(viewport.PanTo(playback.Progress - viewport.Length / 2));
     }
 
@@ -233,7 +236,7 @@ public partial class AudioPanel : UserControl
 
     private void Scrub_MouseDown(object sender, MouseButtonEventArgs e)
     {
-        if (!playback.CanSeek || !((UIElement)sender).CaptureMouse())
+        if (waveformPan is not null || !playback.CanSeek || !((UIElement)sender).CaptureMouse())
             return;
 
         PositionSlider.Focus();
@@ -250,7 +253,7 @@ public partial class AudioPanel : UserControl
 
     private void Scrub_MouseUp(object sender, MouseButtonEventArgs e)
     {
-        if (Mouse.Captured != sender)
+        if (waveformPan is not null || Mouse.Captured != sender)
             return;
 
         SeekOnTimeline(e);
@@ -259,10 +262,64 @@ public partial class AudioPanel : UserControl
         e.Handled = true;
     }
 
-    private void Scrub_LostCapture(object sender, MouseEventArgs e)
+    private void Timeline_LostCapture(object sender, MouseEventArgs e)
     {
-        if (e.OriginalSource == sender)
+        if (e.OriginalSource != sender)
+            return;
+
+        if (waveformPan is not null && sender == WaveSurface)
+            EndWaveformPan();
+        else
             playback.EndScrub(canceled: true);
+    }
+
+    private void Waveform_RightButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        if (!playback.CanSeek || viewport.MaximumStart == 0 || WaveDisplay.ActualWidth <= 0 ||
+            Mouse.Captured is not null || !WaveSurface.CaptureMouse())
+            return;
+
+        waveformPan = (e.GetPosition(WaveDisplay).X, viewport);
+        WaveSurface.Cursor = Cursors.SizeWE;
+        e.Handled = true;
+    }
+
+    private void Waveform_MouseMove(object sender, MouseEventArgs e)
+    {
+        if (waveformPan is null)
+            Scrub_MouseMove(sender, e);
+        else if (WaveSurface.IsMouseCaptured && e.RightButton == MouseButtonState.Pressed)
+            PanWaveform(e.GetPosition(WaveDisplay).X);
+    }
+
+    private void Waveform_RightButtonUp(object sender, MouseButtonEventArgs e)
+    {
+        if (waveformPan is null || !WaveSurface.IsMouseCaptured)
+            return;
+
+        PanWaveform(e.GetPosition(WaveDisplay).X);
+        EndWaveformPan();
+        e.Handled = true;
+    }
+
+    private void PanWaveform(double pointerX)
+    {
+        if (waveformPan is not { } origin || WaveDisplay.ActualWidth <= 0)
+            return;
+
+        double fraction = (pointerX - origin.PointerX) / WaveDisplay.ActualWidth;
+        SetViewport(origin.Viewport.PanTo(origin.Viewport.Start - fraction * origin.Viewport.Length));
+    }
+
+    private void EndWaveformPan()
+    {
+        if (waveformPan is null)
+            return;
+
+        waveformPan = null;
+        WaveSurface.Cursor = Cursors.Hand;
+        if (WaveSurface.IsMouseCaptured)
+            WaveSurface.ReleaseMouseCapture();
     }
 
     private void SeekOnTimeline(MouseEventArgs e)

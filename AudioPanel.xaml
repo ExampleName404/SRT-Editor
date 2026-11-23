@@ -53,14 +53,15 @@
                                 MinHeight="28" Padding="8,3" />
                     </StackPanel>
                 </DockPanel>
-                <Border Grid.Row="2" Panel.ZIndex="1" Margin="0,6,0,0" Background="{StaticResource Field}"
+                <Border x:Name="WaveSurface" Grid.Row="2" Panel.ZIndex="1" Margin="0,6,0,0" Background="{StaticResource Field}"
                         BorderBrush="{StaticResource Line}" BorderThickness="1" CornerRadius="4"
                         Visibility="{Binding HasSource, Converter={StaticResource VisibleWhenTrue}}"
                         UseLayoutRounding="False" Cursor="Hand" IsEnabled="{Binding CanSeek}"
-                        PreviewMouseLeftButtonDown="Scrub_MouseDown" PreviewMouseMove="Scrub_MouseMove"
-                        PreviewMouseLeftButtonUp="Scrub_MouseUp" LostMouseCapture="Scrub_LostCapture"
+                        PreviewMouseLeftButtonDown="Scrub_MouseDown" PreviewMouseMove="Waveform_MouseMove"
+                        PreviewMouseLeftButtonUp="Scrub_MouseUp" LostMouseCapture="Timeline_LostCapture"
+                        PreviewMouseRightButtonDown="Waveform_RightButtonDown" PreviewMouseRightButtonUp="Waveform_RightButtonUp"
                         PreviewMouseWheel="Waveform_MouseWheel"
-                        ToolTip="Щелчок перематывает, колесо меняет масштаб, Shift с колесом прокручивает волну">
+                        ToolTip="Щелчок перематывает, колесо меняет масштаб. Перетаскивайте правой кнопкой или прокручивайте колесом с Shift.">
                     <Grid Margin="{StaticResource AudioSliderInset}">
                         <local:WaveformView x:Name="WaveDisplay" Waveform="{Binding Waveform}" Progress="{Binding Progress}"
                                             IsHitTestVisible="False" AutomationProperties.Name="Звуковая волна" />
@@ -89,7 +90,7 @@
                         SmallChange="100" LargeChange="1000"
                         IsMoveToPointEnabled="False" IsEnabled="{Binding CanSeek}" ValueChanged="PositionSlider_ValueChanged"
                         PreviewMouseLeftButtonDown="Scrub_MouseDown" PreviewMouseMove="Scrub_MouseMove"
-                        PreviewMouseLeftButtonUp="Scrub_MouseUp" LostMouseCapture="Scrub_LostCapture"
+                        PreviewMouseLeftButtonUp="Scrub_MouseUp" LostMouseCapture="Timeline_LostCapture"
                         AutomationProperties.Name="Позиция воспроизведения">
                     <Slider.Resources>
                         <ControlTemplate x:Key="AudioSliderHandle" TargetType="Thumb">
