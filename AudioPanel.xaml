@@ -26,46 +26,74 @@
                                VerticalAlignment="Center" FontWeight="SemiBold" />
                 </DockPanel>
                 <DockPanel Grid.Row="1">
-                    <TextBlock DockPanel.Dock="Right" Text="{Binding TimeLabel}" FontFamily="Consolas"
-                               Foreground="{StaticResource Muted}" FontSize="12" VerticalAlignment="Center"
-                               Margin="8,0,0,0" AutomationProperties.Name="Время воспроизведения" />
+                    <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" TextElement.FontFamily="Consolas"
+                                TextElement.FontSize="12" VerticalAlignment="Center" Margin="4,0,0,0">
+                        <Grid>
+                            <TextBlock x:Name="PositionReadout" Text="{Binding PositionTimeLabel}" Padding="4,2"
+                                       Background="Transparent" Foreground="{StaticResource Muted}"
+                                       Cursor="IBeam" MouseLeftButtonDown="PositionReadout_MouseLeftButtonDown"
+                                       ToolTip="Двойной щелчок для ввода времени" AutomationProperties.Name="Текущее время" />
+                            <TextBox x:Name="PositionInput" Width="{Binding ActualWidth, ElementName=PositionReadout}"
+                                     Padding="2,1" VerticalContentAlignment="Center" Visibility="Collapsed"
+                                     PreviewKeyDown="PositionInput_PreviewKeyDown"
+                                     LostKeyboardFocus="PositionInput_LostKeyboardFocus"
+                                     AutomationProperties.Name="Перейти к времени" />
+                        </Grid>
+                        <TextBlock Text=" / " Foreground="{StaticResource Muted}" VerticalAlignment="Center" />
+                        <TextBlock Text="{Binding DurationTimeLabel}" Foreground="{StaticResource Muted}"
+                                   VerticalAlignment="Center" AutomationProperties.Name="Длительность аудио" />
+                    </StackPanel>
                     <StackPanel Orientation="Horizontal">
                         <Button Content="{Binding PlayLabel}" Click="Play_Click" IsEnabled="{Binding IsReady}"
                                 Style="{StaticResource PrimaryButton}" MinWidth="118" MinHeight="28"
-                                Padding="8,3" Margin="0,0,6,0" />
+                                Padding="8,3" Margin="0,0,6,0" ToolTip="Пробел запускает звук или возвращает к точке старта при паузе" />
                         <Button Content="Стоп" Click="Stop_Click" IsEnabled="{Binding IsReady}"
                                 MinHeight="28" Padding="8,3" />
                     </StackPanel>
                 </DockPanel>
-                <Border Grid.Row="2" Height="66" Margin="0,6,0,0" Background="{StaticResource Field}"
-                        BorderBrush="{StaticResource Line}" BorderThickness="1" CornerRadius="4" ClipToBounds="True">
-                    <Grid>
+                <Border Grid.Row="2" Panel.ZIndex="1" Height="66" Margin="0,6,0,0" Background="{StaticResource Field}"
+                        BorderBrush="{StaticResource Line}" BorderThickness="1" CornerRadius="4"
+                        UseLayoutRounding="False" Cursor="Hand" IsEnabled="{Binding CanSeek}"
+                        PreviewMouseLeftButtonDown="Scrub_MouseDown" PreviewMouseMove="Scrub_MouseMove"
+                        PreviewMouseLeftButtonUp="Scrub_MouseUp" LostMouseCapture="Scrub_LostCapture"
+                        ToolTip="Нажмите или перетащите для перемотки">
+                    <Grid Margin="{StaticResource AudioSliderInset}">
                         <local:WaveformView x:Name="WaveDisplay" Waveform="{Binding Waveform}" Progress="{Binding Progress}"
-                                            Cursor="Hand" IsEnabled="{Binding CanSeek}"
-                                            PreviewMouseLeftButtonDown="Waveform_MouseDown" PreviewMouseMove="Waveform_MouseMove"
-                                            PreviewMouseLeftButtonUp="Waveform_MouseUp" LostMouseCapture="Waveform_LostCapture"
-                                            AutomationProperties.Name="Звуковая волна" ToolTip="Нажмите или перетащите для перемотки" />
+                                            IsHitTestVisible="False" AutomationProperties.Name="Звуковая волна" />
                         <TextBlock Text="{Binding WaveformMessage}" Style="{StaticResource Caption}"
                                    HorizontalAlignment="Center" VerticalAlignment="Center" IsHitTestVisible="False"
                                    Visibility="{Binding HasWaveformMessage, Converter={StaticResource VisibleWhenTrue}}" />
                     </Grid>
                 </Border>
-                <Slider x:Name="PositionSlider" Grid.Row="3" Minimum="0" Maximum="{Binding TimelineLength}"
+                <Slider x:Name="PositionSlider" Grid.Row="3" Margin="1,0" UseLayoutRounding="False"
+                        Style="{StaticResource AudioSlider}" Minimum="0" Maximum="{Binding TimelineLength}"
+                        FocusVisualStyle="{DynamicResource {x:Static SystemParameters.FocusVisualStyleKey}}"
                         Value="{Binding Position, Mode=OneWay}" SmallChange="100" LargeChange="1000"
-                        IsMoveToPointEnabled="True" IsEnabled="{Binding CanSeek}"
-                        ValueChanged="PositionSlider_ValueChanged"
-                        AutomationProperties.Name="Позиция воспроизведения" />
+                        IsMoveToPointEnabled="False" IsEnabled="{Binding CanSeek}" ValueChanged="PositionSlider_ValueChanged"
+                        PreviewMouseLeftButtonDown="Scrub_MouseDown" PreviewMouseMove="Scrub_MouseMove"
+                        PreviewMouseLeftButtonUp="Scrub_MouseUp" LostMouseCapture="Scrub_LostCapture"
+                        AutomationProperties.Name="Позиция воспроизведения">
+                    <Slider.Resources>
+                        <ControlTemplate x:Key="AudioSliderHandle" TargetType="Thumb">
+                            <Grid Background="Transparent" />
+                        </ControlTemplate>
+                    </Slider.Resources>
+                </Slider>
                 <DockPanel Grid.Row="4">
                     <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Margin="8,0,0,0">
                         <TextBlock Text="Громкость" Style="{StaticResource Caption}"
                                    VerticalAlignment="Center" Margin="0,0,6,0" />
-                        <Slider Width="82" Minimum="0" Maximum="1" SmallChange="0.05" LargeChange="0.1"
-                                Value="{Binding Volume, Mode=TwoWay}" IsMoveToPointEnabled="True"
+                        <Slider Style="{StaticResource AudioSlider}" Width="82" Minimum="0" Maximum="1"
+                                SmallChange="0.05" LargeChange="0.1" Value="{Binding Volume, Mode=TwoWay}"
                                 AutomationProperties.Name="Громкость" />
                     </StackPanel>
-                    <TextBlock Text="{Binding Status}" ToolTip="{Binding ErrorDetails}" TextWrapping="Wrap"
-                               Style="{StaticResource Caption}" VerticalAlignment="Center"
-                               Visibility="{Binding HasStatus, Converter={StaticResource VisibleWhenTrue}}" />
+                    <StackPanel VerticalAlignment="Center">
+                        <TextBlock Text="{Binding Status}" ToolTip="{Binding ErrorDetails}" TextWrapping="Wrap"
+                                   Style="{StaticResource Caption}"
+                                   Visibility="{Binding HasStatus, Converter={StaticResource VisibleWhenTrue}}" />
+                        <TextBlock x:Name="PositionError" Foreground="{StaticResource Error}" TextWrapping="Wrap"
+                                   Style="{StaticResource Caption}" Visibility="Collapsed" AutomationProperties.LiveSetting="Polite" />
+                    </StackPanel>
                 </DockPanel>
             </Grid>
             <Border Grid.Column="2" Background="{StaticResource Field}" BorderBrush="{StaticResource Line}"

@@ -32,6 +32,7 @@ internal sealed class AudioPlayback : ObservableModel
     private double duration;
     private double position;
     private double playbackStart;
+    private double playOrigin;
     private double volume = 0.8;
     private double? scrubOrigin;
 
@@ -59,7 +60,8 @@ internal sealed class AudioPlayback : ObservableModel
         }
     }
     public bool HasWaveformMessage => WaveformMessage.Length > 0;
-    public string TimeLabel => FormatTime(position) + " / " + (duration > 0 ? FormatTime(duration) : "—");
+    public string PositionTimeLabel => FormatTime(position);
+    public string DurationTimeLabel => duration > 0 ? FormatTime(duration) : "—";
     public string Status => state switch
     {
         PlaybackState.Loading => "Загрузка аудио…",
@@ -97,23 +99,26 @@ internal sealed class AudioPlayback : ObservableModel
         UpdateCaption();
     }
 
-    public void TogglePlay()
+    public void TogglePlay(bool rewindOnPause = false)
     {
         if (!IsReady)
             return;
 
         if (state == PlaybackState.Playing)
         {
-            if (!scrubOrigin.HasValue)
+            if (!rewindOnPause && !scrubOrigin.HasValue)
                 ReadPosition();
             StopOutput();
             SetState(PlaybackState.Ready);
+            if (rewindOnPause)
+                UpdatePosition(playOrigin);
             return;
         }
 
         if (state == PlaybackState.Ended || position >= duration)
             Stop();
 
+        playOrigin = position;
         SetState(PlaybackState.Playing);
         if (!scrubOrigin.HasValue)
             StartOutput();
@@ -411,7 +416,7 @@ internal sealed class AudioPlayback : ObservableModel
         if (position != current)
         {
             Set(ref position, current, nameof(Position));
-            Notify(nameof(TimeLabel));
+            Notify(nameof(PositionTimeLabel));
             Notify(nameof(Progress));
         }
         UpdateCaption();
@@ -426,7 +431,7 @@ internal sealed class AudioPlayback : ObservableModel
     {
         duration = milliseconds;
         Notify(nameof(TimelineLength));
-        Notify(nameof(TimeLabel));
+        Notify(nameof(DurationTimeLabel));
         Notify(nameof(CanSeek));
         Notify(nameof(Progress));
     }

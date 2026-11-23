@@ -8,6 +8,67 @@
     <SolidColorBrush x:Key="Error" Color="#FFADAB" />
     <SolidColorBrush x:Key="Warning" Color="#F5CA84" />
     <BooleanToVisibilityConverter x:Key="VisibleWhenTrue" />
+    <!-- The audio plot is inset by half the thumb width so both endpoints line up. -->
+    <Thickness x:Key="AudioSliderInset">6,0</Thickness>
+    <ControlTemplate x:Key="AudioSliderHandle" TargetType="Thumb">
+        <Ellipse Fill="{TemplateBinding Background}" Stroke="{TemplateBinding BorderBrush}" StrokeThickness="1" />
+    </ControlTemplate>
+
+    <Style x:Key="AudioSlider" TargetType="Slider">
+        <Setter Property="MinHeight" Value="22" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+        <Setter Property="IsMoveToPointEnabled" Value="True" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Slider">
+                    <Grid x:Name="SliderSurface" Background="Transparent">
+                        <Border Background="{StaticResource Line}" Height="4" CornerRadius="2"
+                                VerticalAlignment="Center" Margin="{StaticResource AudioSliderInset}" />
+                        <Track x:Name="PART_Track">
+                            <Track.DecreaseRepeatButton>
+                                <RepeatButton Focusable="False" OverridesDefaultStyle="True" HorizontalAlignment="Stretch"
+                                              VerticalAlignment="Stretch" Command="Slider.DecreaseLarge">
+                                    <RepeatButton.Template>
+                                        <ControlTemplate TargetType="RepeatButton">
+                                            <Border Background="{StaticResource Accent}" Height="4" CornerRadius="2"
+                                                    Margin="6,0,-6,0" VerticalAlignment="Center" />
+                                        </ControlTemplate>
+                                    </RepeatButton.Template>
+                                </RepeatButton>
+                            </Track.DecreaseRepeatButton>
+                            <Track.IncreaseRepeatButton>
+                                <RepeatButton Focusable="False" OverridesDefaultStyle="True" HorizontalAlignment="Stretch"
+                                              VerticalAlignment="Stretch" Command="Slider.IncreaseLarge">
+                                    <RepeatButton.Template>
+                                        <ControlTemplate TargetType="RepeatButton">
+                                            <Border Background="Transparent" />
+                                        </ControlTemplate>
+                                    </RepeatButton.Template>
+                                </RepeatButton>
+                            </Track.IncreaseRepeatButton>
+                            <Track.Thumb>
+                                <Thumb x:Name="Handle" Width="12" Height="12" Focusable="False"
+                                       Background="{StaticResource Accent}" BorderBrush="{StaticResource Field}"
+                                       Template="{DynamicResource AudioSliderHandle}" />
+                            </Track.Thumb>
+                        </Track>
+                    </Grid>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Handle" Property="Background" Value="#DDFCEF" />
+                        </Trigger>
+                        <Trigger Property="IsKeyboardFocused" Value="True">
+                            <Setter TargetName="Handle" Property="BorderBrush" Value="#ECF0F4" />
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter TargetName="SliderSurface" Property="Opacity" Value="0.42" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
 
     <Style x:Key="Caption" TargetType="TextBlock">
         <Setter Property="Foreground" Value="{StaticResource Muted}" />

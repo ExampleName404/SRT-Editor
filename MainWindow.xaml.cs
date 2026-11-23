@@ -4,6 +4,7 @@ using System.IO;
 using System.Text;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Threading;
@@ -208,6 +209,12 @@ public partial class MainWindow : Window
         else if (modifiers == (ModifierKeys.Control | ModifierKeys.Shift) && e.Key == Key.S)
         {
             SaveDocument(saveAs: true);
+        }
+        else if (modifiers == ModifierKeys.None && e.Key == Key.Space && SoundPanel.CanTogglePlayback &&
+                 e.OriginalSource is not TextBoxBase { IsReadOnly: false })
+        {
+            if (!e.IsRepeat)
+                SoundPanel.TogglePlaybackFromKeyboard();
         }
         else if (modifiers == ModifierKeys.None && e.Key == Key.Enter &&
                  e.OriginalSource is TextBox { Name: "StartInput", DataContext: CueRow row })

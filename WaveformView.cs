@@ -17,11 +17,13 @@ public sealed class WaveformView : FrameworkElement
     private static readonly Brush PlayedBrush = MakeBrush(32, 159, 235, 206);
     private static readonly Pen CenterLine = MakePen(91, 112, 124, 1);
     private static readonly Pen LaneDivider = MakePen(50, 58, 71, 1);
-    private static readonly Pen Playhead = MakePen(206, 255, 237, 1.5);
+    private static readonly Brush PlayheadBrush = MakeBrush(255, 206, 255, 237);
 
     private AudioWaveform? renderedWave;
     private Size renderedSize;
     private DrawingGroup? cachedDrawing;
+
+    public WaveformView() => IsEnabledChanged += (_, _) => InvalidateVisual();
 
     public AudioWaveform? Waveform
     {
@@ -41,7 +43,6 @@ public sealed class WaveformView : FrameworkElement
         if (size.Width < 1 || size.Height < 1)
             return;
 
-        context.DrawRectangle(Brushes.Transparent, null, new Rect(size));
         if (!ReferenceEquals(renderedWave, Waveform) || renderedSize != size || cachedDrawing is null)
         {
             renderedWave = Waveform;
@@ -53,11 +54,34 @@ public sealed class WaveformView : FrameworkElement
         double x = Math.Clamp(Progress, 0, 1) * size.Width;
         if (x > 0)
             context.DrawRectangle(PlayedBrush, null, new Rect(0, 0, x, size.Height));
-        if (Waveform is { Count: > 0 } || x > 0)
+        if (IsEnabled)
+            DrawPlayhead(context, x, size.Height);
+    }
+
+    private static void DrawPlayhead(DrawingContext context, double x, double waveHeight)
+    {
+        const double lineHalfWidth = 0.75;
+        const double markerHalfWidth = 5.5;
+        const double markerHeight = 10;
+        double tip = waveHeight + 1;
+        double join = tip + markerHeight * lineHalfWidth / markerHalfWidth;
+        double bottom = tip + markerHeight;
+
+        // The line and marker share one outline and center, including across the frame border.
+        var shape = new StreamGeometry();
+        using (var path = shape.Open())
         {
-            x = Math.Clamp(x, 0.75, Math.Max(0.75, size.Width - 0.75));
-            context.DrawLine(Playhead, new Point(x, 0), new Point(x, size.Height));
+            path.BeginFigure(new Point(x - lineHalfWidth, 0), isFilled: true, isClosed: true);
+            path.PolyLineTo([
+                new Point(x + lineHalfWidth, 0),
+                new Point(x + lineHalfWidth, join),
+                new Point(x + markerHalfWidth, bottom),
+                new Point(x - markerHalfWidth, bottom),
+                new Point(x - lineHalfWidth, join)
+            ], isStroked: false, isSmoothJoin: false);
         }
+        shape.Freeze();
+        context.DrawGeometry(PlayheadBrush, null, shape);
     }
 
     private static DrawingGroup DrawWaveform(AudioWaveform? wave, Size size)
