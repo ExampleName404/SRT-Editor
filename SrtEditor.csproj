@@ -6,5 +6,14 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <AssemblyName>SrtEditor</AssemblyName>
+    <ApplicationIcon>Assets\SrtEditor.ico</ApplicationIcon>
+    <SrtReleaseSeries>1.0</SrtReleaseSeries>
+    <VersionPrefix>$(SrtReleaseSeries).0</VersionPrefix>
+    <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
+    <DisableFastUpToDateCheck>true</DisableFastUpToDateCheck>
   </PropertyGroup>
+  <ItemGroup>
+    <Resource Include="Assets\SrtEditor.ico" />
+  </ItemGroup>
+  <Import Project="Build\SrtBuildVersion.targets" />
 </Project>

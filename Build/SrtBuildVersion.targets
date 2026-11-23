@@ -1,0 +1,82 @@
+<Project>
+  <UsingTask TaskName="ReserveSrtBuildVersion" TaskFactory="RoslynCodeTaskFactory"
+             AssemblyFile="$(MSBuildToolsPath)\Microsoft.Build.Tasks.Core.dll">
+    <ParameterGroup>
+      <CounterFile ParameterType="System.String" Required="true" />
+      <ReleaseSeries ParameterType="System.String" Required="true" />
+      <ReservedVersion ParameterType="System.String" Output="true" />
+    </ParameterGroup>
+    <Task>
+      <Using Namespace="System.Globalization" />
+      <Using Namespace="System.IO" />
+      <Using Namespace="System.Threading" />
+      <Code Type="Fragment" Language="cs"><![CDATA[
+        Directory.CreateDirectory(Path.GetDirectoryName(CounterFile));
+
+        // Independent MSBuild processes must reserve different numbers for this checkout.
+        FileStream counterLock = null;
+        for (int attempt = 0; counterLock == null; attempt++)
+        {
+            try
+            {
+                counterLock = new FileStream(CounterFile + ".lock", FileMode.OpenOrCreate,
+                    FileAccess.ReadWrite, FileShare.None);
+            }
+            catch (IOException) when (attempt < 99)
+            {
+                Thread.Sleep(50);
+            }
+        }
+
+        using (counterLock)
+        {
+            int patch = 0;
+            bool hasVersion = File.Exists(CounterFile);
+            if (hasVersion)
+            {
+                string value = File.ReadAllText(CounterFile);
+                if (!int.TryParse(value, NumberStyles.None, CultureInfo.InvariantCulture, out int lastPatch) ||
+                    lastPatch >= ushort.MaxValue - 1)
+                {
+                    Log.LogError("Invalid or exhausted build version counter: {0}", CounterFile);
+                    return false;
+                }
+
+                patch = lastPatch + 1;
+            }
+
+            string number = patch.ToString(CultureInfo.InvariantCulture);
+            string temporary = CounterFile + "." + Guid.NewGuid().ToString("N") + ".tmp";
+            try
+            {
+                File.WriteAllText(temporary, number);
+                if (hasVersion)
+                    File.Replace(temporary, CounterFile, null);
+                else
+                    File.Move(temporary, CounterFile);
+            }
+            finally
+            {
+                File.Delete(temporary);
+            }
+
+            ReservedVersion = ReleaseSeries + "." + number;
+        }
+      ]]></Code>
+    </Task>
+  </UsingTask>
+
+  <Target Name="ReserveSrtVersion" BeforeTargets="BeforeBuild"
+          Condition="'$(DesignTimeBuild)' != 'true' and '$(NoBuild)' != 'true'">
+    <ReserveSrtBuildVersion CounterFile="$(MSBuildProjectDirectory)\.srt-build\$(SrtReleaseSeries).txt"
+                            ReleaseSeries="$(SrtReleaseSeries)">
+      <Output TaskParameter="ReservedVersion" PropertyName="Version" />
+    </ReserveSrtBuildVersion>
+    <PropertyGroup>
+      <AssemblyVersion>$(Version).0</AssemblyVersion>
+      <FileVersion>$(AssemblyVersion)</FileVersion>
+      <InformationalVersion>$(Version)</InformationalVersion>
+    </PropertyGroup>
+    <Message Importance="High" Text="SRT Editor version $(Version)" />
+  </Target>
+</Project>

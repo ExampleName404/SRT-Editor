@@ -1,4 +1,8 @@
+using System.ComponentModel;
+using System.Diagnostics;
+using System.Reflection;
 using System.Windows;
+using System.Windows.Navigation;
 
 namespace SrtEditor;
 
@@ -11,6 +15,24 @@ public partial class EditorSettingsWindow : Window
         this.editor = editor;
         InitializeComponent();
         CacheFolder.Text = editor.CachePath;
+        var assembly = typeof(App).Assembly;
+        string? version = assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion
+            ?? assembly.GetName().Version?.ToString(3);
+        ReleaseVersion.Text = $"Версия {version}";
+    }
+
+    private void GitHub_RequestNavigate(object sender, RequestNavigateEventArgs e)
+    {
+        e.Handled = true;
+        try
+        {
+            using var browser = Process.Start(new ProcessStartInfo(e.Uri.AbsoluteUri) { UseShellExecute = true });
+        }
+        catch (Win32Exception exception)
+        {
+            MessageBox.Show(this, $"Не удалось открыть ссылку.\n\n{exception.Message}", "GitHub",
+                MessageBoxButton.OK, MessageBoxImage.Error);
+        }
     }
 
     private void Clear_Click(object sender, RoutedEventArgs e)
