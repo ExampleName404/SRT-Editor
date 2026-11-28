@@ -79,4 +79,10 @@
     </PropertyGroup>
     <Message Importance="High" Text="SRT Editor version $(Version)" />
   </Target>
+
+  <Target Name="ArchivePublishedSrtEditor" AfterTargets="Publish"
+          Condition="'$(RuntimeIdentifier)' == 'win-x64' and '$(PublishSingleFile)' == 'true' and '$(NoBuild)' != 'true'">
+    <Copy SourceFiles="$([System.IO.Path]::Combine('$(PublishDir)', '$(AssemblyName).exe'))"
+          DestinationFiles="$([System.IO.Path]::Combine('$(PublishDir)', '$(AssemblyName)-$(Version).exe'))" />
+  </Target>
 </Project>

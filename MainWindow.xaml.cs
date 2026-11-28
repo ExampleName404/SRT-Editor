@@ -22,6 +22,10 @@ public partial class MainWindow : Window
     {
         SplitTimeInput = EditorPreferences.ReadSplitTimeInput()
     };
+    private readonly DispatcherTimer editRefreshTimer = new(DispatcherPriority.Background)
+    {
+        Interval = TimeSpan.FromMilliseconds(80)
+    };
     private Point dragOrigin;
     private CueRow? draggedCue;
     private ListBoxItem? dropMarker;
@@ -34,6 +38,8 @@ public partial class MainWindow : Window
         DataContext = editor;
         editor.PropertyChanged += Editor_PropertyChanged;
         editor.CuesChanged += SoundPanel.UpdateCues;
+        editor.EditRefreshRequested += editRefreshTimer.Start;
+        editRefreshTimer.Tick += (_, _) => RefreshPendingEdits();
         SoundPanel.OpenAudioRequested += OpenAudio;
         editor.New();
     }
@@ -120,6 +126,7 @@ public partial class MainWindow : Window
 
     private void DiffPreview_ContextMenuOpening(object sender, ContextMenuEventArgs e)
     {
+        RefreshPendingEdits();
         var position = e.CursorLeft < 0
             ? DiffPreview.CaretPosition
             : DiffPreview.GetPositionFromPoint(Mouse.GetPosition(DiffPreview), snapToText: false);
@@ -165,43 +172,64 @@ public partial class MainWindow : Window
 
     private bool SaveDocument(bool saveAs = false)
     {
+        RefreshPendingEdits();
         if (!editor.PrepareToSave())
         {
             ScrollToSelected();
             return false;
         }
 
-        string? path = editor.FilePath;
-        if (saveAs || path is null)
+        string? suggestedName = null;
+        while (true)
         {
-            var dialog = new SaveFileDialog
+            string? path = editor.FilePath;
+            if (saveAs || path is null)
             {
-                Filter = FileFilter,
-                DefaultExt = ".srt",
-                AddExtension = true,
-                OverwritePrompt = true,
-                FileName = path is null ? "subtitles.srt" : Path.GetFileName(path)
-            };
-            if (dialog.ShowDialog(this) != true)
+                var dialog = new SaveFileDialog
+                {
+                    Filter = FileFilter,
+                    DefaultExt = ".srt",
+                    AddExtension = true,
+                    OverwritePrompt = true,
+                    FileName = suggestedName ?? (path is null ? "subtitles.srt" : Path.GetFileName(path))
+                };
+                if (dialog.ShowDialog(this) != true)
+                    return false;
+
+                path = dialog.FileName;
+            }
+
+            try
+            {
+                editor.Save(path);
+                return true;
+            }
+            catch (ExternalSrtChangeException exception)
+            {
+                if (MessageBox.Show(this, $"{exception.Message}\n\nСохранить правки под другим именем?",
+                    "Файл изменился на диске", MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes)
+                    return false;
+
+                suggestedName = Path.GetFileNameWithoutExtension(editor.FilePath) + " - правки.srt";
+                saveAs = true;
+            }
+            catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or EncoderFallbackException or FormatException)
+            {
+                ShowFileError("Не удалось сохранить файл.", exception);
                 return false;
+            }
+        }
+    }
 
-            path = dialog.FileName;
-        }
-
-        try
-        {
-            editor.Save(path);
-            return true;
-        }
-        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or EncoderFallbackException)
-        {
-            ShowFileError("Не удалось сохранить файл.", exception);
-            return false;
-        }
+    private void RefreshPendingEdits()
+    {
+        editRefreshTimer.Stop();
+        editor.FlushPendingEdits();
     }
 
     private bool ConfirmDocumentChange()
     {
+        RefreshPendingEdits();
         if (!editor.IsDirty)
             return true;
 
@@ -219,6 +247,7 @@ public partial class MainWindow : Window
 
     protected override void OnClosed(EventArgs e)
     {
+        editRefreshTimer.Stop();
         SoundPanel.Close();
         base.OnClosed(e);
     }
@@ -243,7 +272,7 @@ public partial class MainWindow : Window
             SaveDocument(saveAs: true);
         }
         else if (modifiers == ModifierKeys.None && e.Key == Key.Space && SoundPanel.CanTogglePlayback &&
-                 e.OriginalSource is not TextBoxBase { IsReadOnly: false })
+                 e.OriginalSource is not (ButtonBase or TextBoxBase { IsReadOnly: false }))
         {
             if (!e.IsRepeat)
                 SoundPanel.TogglePlaybackFromKeyboard();

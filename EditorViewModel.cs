@@ -98,21 +98,24 @@ internal sealed class EditorViewModel(VersionStore versionStore) : ObservableMod
 
     private readonly Stack<Snapshot> undo = new();
     private Cue[] saved = [];
+    private string? savedFingerprint;
     private SrtFormat format = SrtFormat.Default;
     private (CueRow Row, CueField Field)? editing;
     private Dictionary<int, string>? commandErrors;
     private CueRow? selected;
-    private string preview = "";
+    private string? preview;
     private string status = "";
     private string validation = "";
     private bool isDirty;
     private bool showChanges = true;
     private bool splitTimeInput;
+    private bool editRefreshPending;
     private FileVersion? comparisonVersion;
     private string diffSummary = "";
     private IReadOnlyList<PreviewCue> previewRows = [];
 
     public event Action<IReadOnlyList<Cue>>? CuesChanged;
+    public event Action? EditRefreshRequested;
 
     public ObservableCollection<CueRow> Rows { get; } = [];
     public IReadOnlyList<PreviewCue> PreviewRows => previewRows;
@@ -140,7 +143,7 @@ internal sealed class EditorViewModel(VersionStore versionStore) : ObservableMod
         }
     }
 
-    public string Preview { get => preview; private set => Set(ref preview, value); }
+    public string Preview => preview ??= SrtFile.Render(Capture(), format.NewLine);
     public string Status { get => status; set => Set(ref status, value); }
     public string Validation { get => validation; private set => Set(ref validation, value); }
     public string DiffSummary { get => diffSummary; private set => Set(ref diffSummary, value); }
@@ -164,7 +167,10 @@ internal sealed class EditorViewModel(VersionStore versionStore) : ObservableMod
             if (showChanges == value)
                 return;
 
+            FlushPendingEdits();
             Set(ref showChanges, value);
+            if (!value)
+                Notify(nameof(Preview));
             RefreshDiff(Capture());
         }
     }
@@ -183,7 +189,11 @@ internal sealed class EditorViewModel(VersionStore versionStore) : ObservableMod
         }
     }
 
-    public void New() => Load([], null, SrtFormat.Default, "Создан новый документ.");
+    public void New()
+    {
+        savedFingerprint = null;
+        Load([], null, SrtFormat.Default, "Создан новый документ.");
+    }
 
     public void Open(string path)
     {
@@ -192,7 +202,7 @@ internal sealed class EditorViewModel(VersionStore versionStore) : ObservableMod
         string message = "Файл открыт.";
         try
         {
-            var latest = versionStore.Read(path).FirstOrDefault();
+            var latest = versionStore.ReadLatest(path);
             if (latest is not null)
                 cues = CueComparison.ReuseIds(cues, latest.Cues);
 
@@ -203,14 +213,23 @@ internal sealed class EditorViewModel(VersionStore versionStore) : ObservableMod
             message += " Не удалось обновить историю.";
         }
 
+        savedFingerprint = document.Fingerprint;
         Load(cues, path, document.Format, message);
     }
 
     public bool PrepareToSave()
     {
+        FlushPendingEdits();
         EndEdit();
         commandErrors = null;
-        int firstError = Refresh(Capture());
+        var cues = Capture();
+        for (int index = 0; index < cues.Length; index++)
+        {
+            if (SrtFile.HasAmbiguousCueText(cues[index].Text))
+                (commandErrors ??= [])[index] = "Уберите пустую строку перед номером и таймингом внутри текста.";
+        }
+
+        int firstError = Refresh(cues);
         if (firstError < 0)
             return true;
 
@@ -222,17 +241,23 @@ internal sealed class EditorViewModel(VersionStore versionStore) : ObservableMod
     public void Save(string path)
     {
         bool changedPath = FilePath is null || !VersionStore.IsSameFile(FilePath, path);
+        string? expectedFingerprint = changedPath ? null : savedFingerprint;
+        if (expectedFingerprint is not null)
+            SrtFile.EnsureUnchanged(path, expectedFingerprint);
+
         var cues = Capture();
         FileVersion? latest = null;
         bool historyFailed = false;
 
         try
         {
-            latest = versionStore.Read(path).FirstOrDefault();
-            if (File.Exists(path))
+            latest = versionStore.ReadLatest(path);
+            if (!changedPath)
+                latest = versionStore.Record(path, saved, latest);
+            else if (File.Exists(path))
             {
                 var onDisk = SrtFile.Read(path).Cues;
-                var reference = latest?.Cues ?? (changedPath ? [] : saved);
+                var reference = latest?.Cues ?? [];
                 var original = CueComparison.ReuseIds(onDisk, reference);
                 latest = versionStore.Record(path, original, latest);
             }
@@ -246,7 +271,7 @@ internal sealed class EditorViewModel(VersionStore versionStore) : ObservableMod
         if (changedPath && latest is not null)
             cues = CueComparison.ReuseIds(cues, latest.Cues);
 
-        SrtFile.Write(path, cues, format);
+        string fingerprint = SrtFile.Write(path, cues, format, expectedFingerprint);
         try
         {
             versionStore.Record(path, cues, latest);
@@ -263,6 +288,7 @@ internal sealed class EditorViewModel(VersionStore versionStore) : ObservableMod
         }
 
         FilePath = path;
+        savedFingerprint = fingerprint;
         saved = cues;
         NotifyFile();
         RefreshDiff(cues);
@@ -275,6 +301,7 @@ internal sealed class EditorViewModel(VersionStore versionStore) : ObservableMod
 
     public void UseComparisonVersion(FileVersion? version)
     {
+        FlushPendingEdits();
         comparisonVersion = version;
         NotifyComparison();
         if (ShowChanges)
@@ -298,6 +325,7 @@ internal sealed class EditorViewModel(VersionStore versionStore) : ObservableMod
 
     public void RestorePreviewCue(Guid id)
     {
+        FlushPendingEdits();
         var change = PreviewRows.FirstOrDefault(row => row.Id == id);
         if (change is not { Changed: true })
             return;
@@ -388,10 +416,29 @@ internal sealed class EditorViewModel(VersionStore versionStore) : ObservableMod
         }
 
         row.Replace(updated);
-        Changed();
+        preview = null;
+        if (EditRefreshRequested is not { } request)
+        {
+            Changed();
+            return;
+        }
+
+        IsDirty = true;
+        Status = "";
+        if (!editRefreshPending)
+        {
+            editRefreshPending = true;
+            request();
+        }
     }
 
     public void EndEdit() => editing = null;
+
+    public void FlushPendingEdits()
+    {
+        if (editRefreshPending)
+            Changed();
+    }
 
     public void CopyPreviousEnd(CueRow row)
     {
@@ -499,6 +546,7 @@ internal sealed class EditorViewModel(VersionStore versionStore) : ObservableMod
 
     private void Changed()
     {
+        editRefreshPending = false;
         commandErrors = null;
         Status = "";
         var cues = Capture();
@@ -530,7 +578,9 @@ internal sealed class EditorViewModel(VersionStore versionStore) : ObservableMod
                 overlaps++;
         }
 
-        Preview = SrtFile.Render(cues, format.NewLine);
+        preview = null;
+        if (!ShowChanges)
+            Notify(nameof(Preview));
         IsDirty = !CueComparison.HasSameContent(cues, saved);
         RefreshDiff(cues);
         Validation = errors > 0

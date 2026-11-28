@@ -226,6 +226,7 @@ public partial class AudioPanel : UserControl
         PositionInput.Visibility = Visibility.Collapsed;
         PositionReadout.Visibility = Visibility.Visible;
         PositionInput.Clear();
+        ClearPositionError();
     }
 
     private void PositionSlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)

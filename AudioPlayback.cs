@@ -14,6 +14,8 @@ internal sealed class AudioPlayback : ObservableModel
     {
         Interval = TimeSpan.FromMilliseconds(30)
     };
+    private readonly DispatcherTimer loadTimer;
+    private readonly Func<string, CancellationToken, Task<(WaveStream Reader, OggPcmBuffer? Buffer)>> openAudio;
     private CancellationTokenSource? loadRequest;
     private CancellationTokenSource? waveformRequest;
     private CancellationTokenSource? playbackRead;
@@ -36,7 +38,22 @@ internal sealed class AudioPlayback : ObservableModel
     private double volume = 0.8;
     private double? scrubOrigin;
 
-    public AudioPlayback() => timer.Tick += (_, _) => ReadPosition();
+    public AudioPlayback() : this(TimeSpan.FromSeconds(30), OpenAudioSourceAsync)
+    {
+    }
+
+    internal AudioPlayback(TimeSpan loadTimeout,
+        Func<string, CancellationToken, Task<(WaveStream Reader, OggPcmBuffer? Buffer)>> openAudio)
+    {
+        this.openAudio = openAudio;
+        timer.Tick += (_, _) => ReadPosition();
+        loadTimer = new DispatcherTimer(DispatcherPriority.Normal) { Interval = loadTimeout };
+        loadTimer.Tick += (_, _) =>
+        {
+            if (loadRequest is not null)
+                FailLoad($"Аудиофайл не открылся за {loadTimeout.TotalSeconds:0.###} секунд.");
+        };
+    }
 
     public bool HasSource => FilePath is not null;
     public bool IsReady => state is PlaybackState.Ready or PlaybackState.Playing or PlaybackState.Ended;
@@ -186,38 +203,41 @@ internal sealed class AudioPlayback : ObservableModel
 
     private async Task LoadAudioAsync(string filePath)
     {
-        using var request = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        using var request = new CancellationTokenSource();
         loadRequest = request;
-        using var timeout = request.Token.Register(() => _ = dispatcher.InvokeAsync(() =>
-        {
-            if (loadRequest == request)
-                FailLoad("Аудиофайл не открылся за 30 секунд.");
-        }));
+        loadTimer.Start();
         WaveStream? openedAudio = null;
         OggPcmBuffer? openedOgg = null;
+        Exception? failure = null;
+        double length = 0;
         try
         {
-            if (OggAudio.IsOggFile(filePath))
-            {
-                openedOgg = await OggPcmBuffer.OpenAsync(filePath, request.Token).ConfigureAwait(false);
-                openedAudio = openedOgg.OpenReader();
-            }
-            else
-            {
-                openedAudio = await Task.Run(() => new MediaFoundationReader(filePath), request.Token)
-                    .ConfigureAwait(false);
-            }
-
-            double length = openedAudio.TotalTime.TotalMilliseconds;
+            (openedAudio, openedOgg) = await openAudio(filePath, request.Token).ConfigureAwait(false);
+            length = openedAudio.TotalTime.TotalMilliseconds;
             if (length <= 0)
                 throw new InvalidDataException("В файле нет звуковых данных.");
+        }
+        catch (Exception exception)
+        {
+            failure = exception;
+        }
 
+        try
+        {
             await dispatcher.InvokeAsync(() =>
             {
-                if (loadRequest != request || request.IsCancellationRequested)
+                if (loadRequest != request)
                     return;
 
+                // Stop the timer and detach the token before the worker can dispose it.
                 loadRequest = null;
+                loadTimer.Stop();
+                if (failure is not null)
+                {
+                    FailLoad(failure.Message);
+                    return;
+                }
+
                 audio = openedAudio;
                 ogg = openedOgg;
                 openedAudio = null;
@@ -228,22 +248,24 @@ internal sealed class AudioPlayback : ObservableModel
                 _ = LoadWaveformAsync(filePath, ogg);
             });
         }
-        catch (OperationCanceledException) when (request.IsCancellationRequested || dispatcher.HasShutdownStarted)
+        catch (OperationCanceledException) when (dispatcher.HasShutdownStarted)
         {
-        }
-        catch (Exception exception)
-        {
-            await dispatcher.InvokeAsync(() =>
-            {
-                if (loadRequest == request && !request.IsCancellationRequested)
-                    FailLoad(exception.Message);
-            });
         }
         finally
         {
             openedAudio?.Dispose();
             openedOgg?.Dispose();
         }
+    }
+
+    private static async Task<(WaveStream Reader, OggPcmBuffer? Buffer)> OpenAudioSourceAsync(string filePath,
+        CancellationToken cancellation)
+    {
+        if (!OggAudio.IsOggFile(filePath))
+            return (await Task.Run(() => new MediaFoundationReader(filePath), cancellation).ConfigureAwait(false), null);
+
+        var buffer = await OggPcmBuffer.OpenAsync(filePath, cancellation).ConfigureAwait(false);
+        return (buffer.OpenReader(), buffer);
     }
 
     private void FailLoad(string details)
@@ -257,6 +279,7 @@ internal sealed class AudioPlayback : ObservableModel
 
     private void ReleaseAudio()
     {
+        loadTimer.Stop();
         var previousLoad = loadRequest;
         loadRequest = null;
         previousLoad?.Cancel();

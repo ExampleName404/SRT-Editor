@@ -14,38 +14,100 @@ internal sealed record FileVersion(Guid Id, DateTimeOffset RecordedAt, Cue[] Cue
 
 internal sealed class VersionStore(string directory)
 {
+    private sealed record VersionHeader(string Path, Guid Id, DateTimeOffset RecordedAt, FileVersion? Version = null);
+
     private const string VersionSuffix = ".srt-version.json";
 
     public string DirectoryPath { get; } = directory;
 
-    public IReadOnlyList<FileVersion> Read(string path)
-    {
-        if (!Directory.Exists(DirectoryPath))
-            return [];
+    public IReadOnlyList<FileVersion> Read(string path) =>
+        Entries(path).Select(ReadVersion).OfType<FileVersion>()
+            .OrderByDescending(version => version.RecordedAt).ThenByDescending(version => version.Id).ToArray();
 
-        var result = new List<FileVersion>();
-        foreach (string entry in Directory.EnumerateFiles(DirectoryPath, FileKey(path) + "-*" + VersionSuffix))
+    public FileVersion? ReadLatest(string path)
+    {
+        var ordered = Entries(path).Select(ReadHeader).OfType<VersionHeader>()
+            .OrderByDescending(header => header.RecordedAt).ThenByDescending(header => header.Id);
+        foreach (var entry in ordered)
         {
-            try
-            {
-                using var stream = new FileStream(entry, FileMode.Open, FileAccess.Read, FileShare.Read | FileShare.Delete);
-                var version = JsonSerializer.Deserialize<FileVersion>(stream);
-                if (version is { Cues: not null } && version.Cues.All(IsValidCue) &&
-                    version.Cues.Select(cue => cue.Id).Distinct().Count() == version.Cues.Length)
-                    result.Add(version);
-            }
-            catch (JsonException)
-            {
-                // An unreadable cache entry shouldn't hide the other versions of the file.
-            }
-            catch (FileNotFoundException)
-            {
-                // Another window may have cleared the cache during enumeration.
-            }
+            var version = entry.Version ?? ReadVersion(entry.Path);
+            if (version is not null)
+                return version;
         }
 
-        return result.OrderByDescending(version => version.RecordedAt)
-            .ThenByDescending(version => version.Id).ToArray();
+        return null;
+    }
+
+    private IEnumerable<string> Entries(string path) => Directory.Exists(DirectoryPath)
+        ? Directory.EnumerateFiles(DirectoryPath, FileKey(path) + "-*" + VersionSuffix) : [];
+
+    private static FileVersion? ReadVersion(string entry)
+    {
+        try
+        {
+            using var stream = OpenEntry(entry);
+            return ReadVersion(stream);
+        }
+        catch (Exception exception) when (exception is JsonException or FileNotFoundException)
+        {
+            return null;
+        }
+    }
+
+    private static VersionHeader? ReadHeader(string entry)
+    {
+        try
+        {
+            using var stream = OpenEntry(entry);
+            Span<byte> prefix = stackalloc byte[256];
+            int length = stream.ReadAtLeast(prefix, prefix.Length, false);
+            if (TryReadHeader(prefix[..length], out Guid id, out DateTimeOffset recordedAt))
+                return new VersionHeader(entry, id, recordedAt);
+
+            // Snapshots with a different property order are still readable.
+            stream.Position = 0;
+            var version = ReadVersion(stream);
+            return version is null ? null : new VersionHeader(entry, version.Id, version.RecordedAt, version);
+        }
+        catch (Exception exception) when (exception is JsonException or FileNotFoundException)
+        {
+            return null;
+        }
+    }
+
+    private static bool TryReadHeader(ReadOnlySpan<byte> prefix, out Guid id, out DateTimeOffset recordedAt)
+    {
+        if (prefix.StartsWith("\uFEFF"u8))
+            prefix = prefix[3..];
+
+        id = default;
+        recordedAt = default;
+        bool hasId = false;
+        bool hasRecordedAt = false;
+        var reader = new Utf8JsonReader(prefix, isFinalBlock: false, state: default);
+        while (reader.Read())
+        {
+            if (reader.TokenType != JsonTokenType.PropertyName || reader.CurrentDepth != 1)
+                continue;
+            if (reader.ValueTextEquals("Cues"u8))
+                break;
+            if (reader.ValueTextEquals("Id"u8))
+                hasId = reader.Read() && reader.TokenType == JsonTokenType.String && reader.TryGetGuid(out id);
+            else if (reader.ValueTextEquals("RecordedAt"u8))
+                hasRecordedAt = reader.Read() && reader.TokenType == JsonTokenType.String && reader.TryGetDateTimeOffset(out recordedAt);
+        }
+
+        return hasId && hasRecordedAt;
+    }
+
+    private static FileStream OpenEntry(string entry) =>
+        new(entry, FileMode.Open, FileAccess.Read, FileShare.Read | FileShare.Delete);
+
+    private static FileVersion? ReadVersion(Stream stream)
+    {
+        var version = JsonSerializer.Deserialize<FileVersion>(stream);
+        return version is { Cues: not null } && version.Cues.All(IsValidCue) &&
+            version.Cues.Select(cue => cue.Id).Distinct().Count() == version.Cues.Length ? version : null;
     }
 
     public FileVersion Record(string path, Cue[] cues, FileVersion? latest)

@@ -11,9 +11,11 @@
     <VersionPrefix>$(SrtReleaseSeries).0</VersionPrefix>
     <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
     <DisableFastUpToDateCheck>true</DisableFastUpToDateCheck>
+    <DefaultItemExcludes>$(DefaultItemExcludes);tests/**</DefaultItemExcludes>
   </PropertyGroup>
   <ItemGroup>
     <Resource Include="Assets\SrtEditor.ico" />
+    <InternalsVisibleTo Include="SrtEditor.Tests" />
     <EmbeddedResource Include="ThirdPartyNotices.txt" />
     <None Update="ThirdPartyNotices.txt" CopyToPublishDirectory="PreserveNewest" ExcludeFromSingleFile="true" />
     <PackageReference Include="Concentus.Oggfile" Version="1.0.7" />
