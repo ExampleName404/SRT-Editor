@@ -39,5 +39,21 @@ internal static class EditorTests
         editor.Undo();
         editor.FlushPendingEdits();
         Check.True(published == 2 && !row.HasError && row.End == "2", "Undo consumes a pending refresh without a duplicate update.");
+
+        NewTranscriptionIsAnUnsavedDraft();
+    }
+
+    private static void NewTranscriptionIsAnUnsavedDraft()
+    {
+        var editor = new EditorViewModel(new VersionStore(Path.Combine(AppContext.BaseDirectory, "unused")));
+        Cue[] cues = [new("00:00:01,250", "00:00:02,000", "Привет.")];
+        editor.NewTranscription(cues);
+        Check.True(editor.FilePath is null && editor.IsDirty && editor.CanUndo && editor.Rows[0].Data == cues[0] &&
+                   editor.Preview.Contains(cues[0].Text, StringComparison.Ordinal),
+            "Recognized cues appear in an unsaved draft ready to edit.");
+
+        editor.Undo();
+        Check.True(editor.Rows.Count == 0 && !editor.IsDirty,
+            "One undo returns the transcription draft to an empty document.");
     }
 }

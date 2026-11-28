@@ -56,6 +56,7 @@ nunit-*.xml
 # Local subtitle versions
 cache/versions/
 cache/settings.json
+cache/models/
 
 # Local build version counter
 /.srt-build/

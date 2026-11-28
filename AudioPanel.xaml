@@ -21,6 +21,8 @@
                 <DockPanel Margin="0,0,0,5">
                     <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Margin="10,0,0,0">
                         <Button Content="Открыть аудио…" Click="OpenAudio_Click" FontSize="12" MinHeight="26" Padding="8,2" />
+                        <Button x:Name="TranscribeButton" Content="Распознать речь…" Click="Transcribe_Click" FontSize="12" MinHeight="26" Padding="8,2"
+                                Margin="6,0,0,0" IsEnabled="{Binding IsReady}" Visibility="{Binding HasSource, Converter={StaticResource VisibleWhenTrue}}" />
                         <Button Content="Закрыть аудио" Click="Close_Click" FontSize="12" MinHeight="26" Padding="8,2"
                                 Margin="6,0,0,0" Visibility="{Binding HasSource, Converter={StaticResource VisibleWhenTrue}}" />
                     </StackPanel>

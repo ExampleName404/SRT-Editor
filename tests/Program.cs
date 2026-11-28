@@ -14,7 +14,9 @@ internal static class Program
             ("SRT files and history", SrtDataTests.Run),
             ("Timing input and edit refresh", EditorTests.Run),
             ("Audio loading", AudioLoadTests.Run),
-            ("Audio keyboard and seek input", AudioUiTests.Run)
+            ("Audio keyboard and seek input", AudioUiTests.Run),
+            ("Transcription audio", TranscriptionAudioTests.Run),
+            ("Transcription draft", TranscriptionDraftTests.Run)
         ];
         int failed = 0;
         foreach (var suite in suites)

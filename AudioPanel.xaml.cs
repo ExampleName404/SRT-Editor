@@ -15,6 +15,7 @@ public partial class AudioPanel : UserControl
     private bool updatingPositionSlider;
 
     internal event Action? OpenAudioRequested;
+    internal event Action<string>? TranscriptionRequested;
 
     public AudioPanel()
     {
@@ -46,6 +47,12 @@ public partial class AudioPanel : UserControl
     internal void TogglePlaybackFromKeyboard() => TogglePlay(rewindOnPause: true);
 
     private void OpenAudio_Click(object sender, RoutedEventArgs e) => OpenAudioRequested?.Invoke();
+    private void Transcribe_Click(object sender, RoutedEventArgs e)
+    {
+        if (playback.IsReady && playback.FilePath is { } audioPath)
+            TranscriptionRequested?.Invoke(audioPath);
+    }
+
     private void Play_Click(object sender, RoutedEventArgs e) => TogglePlay(rewindOnPause: false);
     private void Stop_Click(object sender, RoutedEventArgs e)
     {

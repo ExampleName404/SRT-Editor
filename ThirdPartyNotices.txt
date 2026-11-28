@@ -16,6 +16,22 @@ Concentus.Oggfile
 https://github.com/lostromb/concentus.oggfile
 Copyright (c) 2020 Andrew Ward and Logan Stromberg
 
+Whisper.net
+https://github.com/sandrohanea/whisper.net
+Copyright (c) 2024 sandrohanea
+
+whisper.cpp and ggml
+https://github.com/ggml-org/whisper.cpp
+Copyright (c) 2023-2026 The ggml authors
+
+Whisper model
+https://github.com/openai/whisper
+Copyright (c) 2022 OpenAI
+
+Microsoft.Extensions.AI.Abstractions
+https://github.com/dotnet/extensions
+Copyright (c) .NET Foundation and Contributors
+
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
 in the Software without restriction, including without limitation the rights

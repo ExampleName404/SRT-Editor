@@ -41,6 +41,7 @@ public partial class MainWindow : Window
         editor.EditRefreshRequested += editRefreshTimer.Start;
         editRefreshTimer.Tick += (_, _) => RefreshPendingEdits();
         SoundPanel.OpenAudioRequested += OpenAudio;
+        SoundPanel.TranscriptionRequested += TranscribeAudio;
         editor.New();
     }
 
@@ -59,9 +60,25 @@ public partial class MainWindow : Window
             SoundPanel.Open(dialog.FileName, editor.Rows.Select(row => row.Data));
     }
 
-    private void ToggleAudioPanel_Click(object sender, RoutedEventArgs e)
+    private void TranscribeAudio(string audioPath)
     {
-        bool open = SoundPanel.Visibility == Visibility.Collapsed;
+        var dialog = new TranscriptionWindow(audioPath) { Owner = this };
+        dialog.ShowDialog();
+        if (dialog.Result is not { Length: > 0 } cues)
+            return;
+
+        var resultWindow = new MainWindow();
+        resultWindow.editor.NewTranscription(cues);
+        resultWindow.Show();
+        resultWindow.SetAudioPanelOpen(true);
+        resultWindow.SoundPanel.Open(audioPath, cues);
+    }
+
+    private void ToggleAudioPanel_Click(object sender, RoutedEventArgs e) =>
+        SetAudioPanelOpen(SoundPanel.Visibility == Visibility.Collapsed);
+
+    private void SetAudioPanelOpen(bool open)
+    {
         if (open)
         {
             if (previousAudioHeight is null)

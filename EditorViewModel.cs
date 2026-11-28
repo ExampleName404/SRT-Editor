@@ -195,6 +195,15 @@ internal sealed class EditorViewModel(VersionStore versionStore) : ObservableMod
         Load([], null, SrtFormat.Default, "Создан новый документ.");
     }
 
+    internal void NewTranscription(Cue[] cues)
+    {
+        New();
+        Remember();
+        Restore(cues, 0);
+        Changed();
+        Status = $"Распознано блоков: {cues.Length}. Черновик готов к проверке.";
+    }
+
     public void Open(string path)
     {
         var document = SrtFile.Read(path);
